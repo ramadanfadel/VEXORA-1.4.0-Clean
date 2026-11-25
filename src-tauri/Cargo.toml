@@ -1,8 +1,9 @@
 [package]
 name = "vexora"
-version = "1.4.9"
+version = "1.5.0"
 description = "VEXORA - Clean Smarter. Run Faster. PC cleaner, privacy and optimizer"
 authors = ["Ramadan Fadel Mostafa (Abu Maryam)"]
+license = "MIT"
 edition = "2021"
 build = "build.rs"
 
@@ -38,7 +39,6 @@ windows-sys = { version = "0.59", features = [
     "Win32_NetworkManagement_Ndis",
 ] }
 num_cpus = "1"
-czkawka_core = "12.0.2"
 sha2 = "0.10"
 image = "0.25"
 image_hasher = "3"

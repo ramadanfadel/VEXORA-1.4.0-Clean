@@ -188,6 +188,7 @@ const DICT = {
     shredFile: "فرم آمن",
     shredPasses: "ممرات",
     shredderWarn: "لا يمكن استعادة الملف بعد الفرم.",
+    shredderSsdWarn: "تحذير SSD: على أقراص SSD قد يكتب المعالج بيانات في مواقع أخرى (Wear Leveling) أو ينقلها إلى منطقة محجوزة. لا تضمن عدة العبورات ولا TRIM المحو النهائي. استخدم تشفير القرص لحماية البيانات الحساسة.",
     fonts: "مدير الخطوط",
     toolFontsDesc: "قراءة/معاينة/نسخ احتياطي/حذف الخطوط، واكتشاف المكررات والمسارات التالفة.",
     fontPreview: "معاينة",
@@ -238,8 +239,6 @@ const DICT = {
     hwmonNoSensors: "لا توجد مستشعرات متاحة على هذا الجهاز.",
     githubRepo: "مستودع GitHub للتحديثات",
     githubRepoHint: "مثال: ramadanfadel/VEXORA-1.4.0-Clean — يقبل أي اسم إصدار أو ملف تثبيت.",
-    githubToken: "رمز GitHub (اختياري)",
-    githubTokenHint: "يستخدم فقط لتفادي حد 60 طلباً/ساعة. رمز بصلاحية public_repo. يُحفظ مشفراً عبر Windows DPAPI ولا يظهر في الإعدادات بعد الحفظ.",
     githubPage: "صفحتي على GitHub",
     updateToast: "إصدار جديد متاح",
     updateToastBody: "تحديث VEXORA متاح للتثبيت",
@@ -723,6 +722,7 @@ const DICT = {
     shredFile: "Secure shred",
     shredPasses: "Passes",
     shredderWarn: "File cannot be recovered after shredding.",
+  shredderSsdWarn: "SSD warning: on SSDs the controller may write data elsewhere (wear leveling) or move it to a reserved area. Neither multiple passes nor TRIM guarantees final erasure. Use full-disk encryption for sensitive data.",
     fonts: "Font manager",
     toolFontsDesc: "List/preview/backup/delete fonts; detect duplicates and broken paths.",
     fontPreview: "Preview",
@@ -773,8 +773,6 @@ const DICT = {
     hwmonNoSensors: "No sensors are exposed on this device.",
     githubRepo: "GitHub repo for updates",
     githubRepoHint: "Example: ramadanfadel/VEXORA-1.4.0-Clean — any release tag or installer name works.",
-    githubToken: "GitHub token (optional)",
-    githubTokenHint: "Only used to avoid the 60 requests/hour API limit. A public_repo token is enough. Encrypted with Windows DPAPI and hidden after saving.",
     githubPage: "My GitHub page",
     updateToast: "New version available",
     updateToastBody: "A VEXORA update is ready to install",
@@ -3556,6 +3554,7 @@ async function renderTools() {
         <button class="btn small danger" id="shredKill">${esc(t("killAndDelete"))}</button>` : (locks ? `<div class="tiny muted" style="margin-bottom:8px">${esc(state.lang === "ar" ? "لا توجد عمليات مانعة" : "No locking processes")}</div>` : "")}
       ${res ? `<div class="tiny" style="font-weight:600;margin-top:10px">${esc(res.ok ? (state.lang === "ar" ? "تم" : "Done") : (state.lang === "ar" ? "فشل" : "Failed"))}${res.message ? " · " + esc(res.message) : ""}</div>` : ""}
       <div class="tiny muted" style="margin-top:10px;color:var(--danger)">${esc(t("shredderWarn"))}</div>
+      <div class="tiny muted" style="margin-top:6px;color:var(--warn)">${esc(t("shredderSsdWarn"))}</div>
     </div>`;
   } else if (tab === "fonts") {
     if (state.tools.fonts === undefined) {
@@ -4495,9 +4494,6 @@ async function renderSettings() {
       <div class="field" style="margin-top:10px"><label>${esc(t("githubRepo"))}</label>
         <input type="text" id="githubRepo" value="${esc(s.githubRepo || "ramadanfadel/VEXORA-1.4.0-Clean")}" placeholder="ramadanfadel/VEXORA-1.4.0-Clean" style="direction:ltr" /></div>
       <div class="tiny muted">${esc(t("githubRepoHint"))}</div>
-      <div class="field" style="margin-top:10px"><label>${esc(t("githubToken"))}</label>
-        <input type="password" id="githubToken" value="${esc(s.githubToken || "")}" placeholder="ghp_…" style="direction:ltr" /></div>
-      <div class="tiny muted">${esc(t("githubTokenHint"))}</div>
       <div class="tiny muted" style="margin-top:4px">${svg("shield", 13)} ${esc(t("shaVerified"))}</div>
       <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
         <button class="btn small blue" id="checkUpd">${svg("refresh", 14)}${esc(t("checkUpdate"))}</button>
@@ -4735,14 +4731,12 @@ async function renderSettings() {
 
   $("#updateUrl").onchange = (e) => persist({ updateUrl: e.target.value.trim() });
   $("#githubRepo").onchange = (e) => persist({ githubRepo: e.target.value.trim() });
-  $("#githubToken").onchange = (e) => persist({ githubToken: e.target.value.trim() });
   $("#githubPage").onclick = () => invoke("open_github_page").catch(() => {});
   $("#checkUpd").onclick = () => showUpdate();
   $("#updSave").onclick = () =>
     persist({
       updateUrl: ($("#updateUrl").value || "").trim(),
       githubRepo: ($("#githubRepo").value || "").trim(),
-      githubToken: ($("#githubToken").value || "").trim(),
     });
 
   const pickDir = async () => {

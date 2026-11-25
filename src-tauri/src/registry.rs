@@ -242,6 +242,24 @@ pub fn scan() -> Vec<Issue> {
     issues
 }
 
+/// Merge raw `reg export` files into one restorable .reg file. Kept pure so
+/// the backup format can be tested without touching the real registry.
+fn merge_reg_exports(exports: &[String]) -> String {
+    let mut merged = String::from("Windows Registry Editor Version 5.00\r\n\r\n");
+    for text in exports {
+        for line in text.lines() {
+            let trimmed = line.trim();
+            if trimmed.starts_with("Windows Registry Editor") || trimmed.is_empty() {
+                continue;
+            }
+            merged.push_str(line);
+            merged.push_str("\r\n");
+        }
+        merged.push_str("\r\n");
+    }
+    merged
+}
+
 pub fn backup(issues: &[Issue]) -> Result<String, String> {
     let stamp = util::now_unix();
     let file = util::backups_dir().join(format!("registry-{stamp}.reg"));
@@ -249,7 +267,7 @@ pub fn backup(issues: &[Issue]) -> Result<String, String> {
     targets.sort();
     targets.dedup();
 
-    let mut merged = String::from("Windows Registry Editor Version 5.00\r\n\r\n");
+    let mut exports: Vec<String> = Vec::new();
     for (idx, key) in targets.iter().enumerate() {
         let tmp = util::backups_dir().join(format!("registry-{stamp}-{idx}.reg"));
         let tmp_s = tmp.to_string_lossy().to_string();
@@ -263,18 +281,11 @@ pub fn backup(issues: &[Issue]) -> Result<String, String> {
             continue;
         }
         if let Ok(text) = std::fs::read_to_string(&tmp) {
-            for line in text.lines() {
-                let trimmed = line.trim();
-                if trimmed.starts_with("Windows Registry Editor") || trimmed.is_empty() {
-                    continue;
-                }
-                merged.push_str(line);
-                merged.push_str("\r\n");
-            }
-            merged.push_str("\r\n");
+            exports.push(text);
         }
         let _ = std::fs::remove_file(&tmp);
     }
+    let merged = merge_reg_exports(&exports);
     std::fs::write(&file, merged).map_err(|e| e.to_string())?;
     Ok(file.to_string_lossy().to_string())
 }
@@ -299,4 +310,20 @@ pub fn fix(issues: &[Issue]) -> (usize, Vec<String>) {
 
 pub fn hive_of(path: &str) -> Option<Hive> {
     regutil::split_path(path).map(|(h, _)| h)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn backup_merges_multiple_exports_without_duplicate_header() {
+        let a = "Windows Registry Editor Version 5.00\r\n\r\n[HKEY_CURRENT_USER\\A]\r\n\"x\"=dword:1\r\n";
+        let b = "Windows Registry Editor Version 5.00\r\n\r\n[HKEY_CURRENT_USER\\B]\r\n\"y\"=dword:2\r\n";
+        let merged = merge_reg_exports(&[a.into(), b.into()]);
+        assert_eq!(merged.matches("Windows Registry Editor").count(), 1);
+        assert!(merged.contains("[HKEY_CURRENT_USER\\A]"));
+        assert!(merged.contains("[HKEY_CURRENT_USER\\B]"));
+        assert!(merged.contains("\"x\"=dword:1"));
+    }
 }

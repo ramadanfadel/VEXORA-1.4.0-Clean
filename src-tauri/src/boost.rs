@@ -368,8 +368,8 @@ pub fn classify_process(pid: u32) -> AppClassification {
         return AppClassification::Keep;
     }
 
-    // If the process has a publisher that indicates it's a system app, keep it
-    // (publisher check would require additional metadata - placeholder for now)
+    // Publisher metadata is not available from the current process list, so
+    // no publisher-based classification is exposed in the public UI.
 
     // Default: optional to close
     AppClassification::Optional

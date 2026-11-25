@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.5.0 — Trust & Security Update
+- Removed all Windows-protection-disable guidance; unified version numbers and MIT license.
+- Update hardening: GitHub-only HTTPS URLs, unique temp file, exact publisher check, safe relaunch.
+- Removed the GitHub token feature entirely.
+- cargo-audit + cargo-deny + Dependabot; documented accepted advisories; SBOM/SHA256SUMS generator.
+- Local privacy-safe panic log; integration tests for registry backup, junctions and reparse guards.
+- HyperScan placeholder module removed; SSD warning added to Shredder.
+- 52 unit tests + UI smoke test. See VEXORA-1.5.0-Trust-Report.md.
+
 ## 1.4.9
 - Trust phase: GitHub token moved to Windows DPAPI-encrypted storage (never
   plaintext in settings.json); Dependabot + `cargo audit` + `npm audit` in CI;

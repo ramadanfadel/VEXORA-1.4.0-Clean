@@ -1,0 +1,17 @@
+# Accepted advisories. All are transitive Tauri v2 dependencies; VEXORA does
+# not call the affected archive-extraction / XML / decompression code paths
+# with untrusted input. Reviewed 2026-11-26. Re-check every release.
+[advisories]
+ignore = [
+    "RUSTSEC-2026-0194", # quick-xml: quadratic time on duplicate attributes
+    "RUSTSEC-2026-0195", # quick-xml: namespace allocation DoS
+    "RUSTSEC-2026-0344", # ruzstd: decompression bomb
+    "RUSTSEC-2026-0367", # zip: SUID/SGID preservation
+    "RUSTSEC-2026-0368", # zip: symlink escape
+    "RUSTSEC-2026-0369", # zip: permissions through symlinks
+    "RUSTSEC-2026-0429", # zip: abort on large symlink entry
+    "RUSTSEC-2026-0545", # zip: AES tag not checked
+    "RUSTSEC-2026-0546", # zip: write outside destination
+    "RUSTSEC-2026-0547", # zip: legacy decoder preallocation
+    "RUSTSEC-2026-0548", # zip: local-header name mismatch
+]

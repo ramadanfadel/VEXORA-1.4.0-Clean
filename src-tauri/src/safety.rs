@@ -399,6 +399,34 @@ mod tests {
         assert!(!clean_path_allowed(Path::new(r"C:\$Recycle.bin")));
     }
 
+    #[cfg(windows)]
+    #[test]
+    fn rejects_a_real_directory_junction() {
+        let base = std::env::temp_dir().join(format!("vexora_junction_{}", std::process::id()));
+        let target = base.join("target");
+        let link = base.join("link");
+        let _ = std::fs::create_dir_all(&target);
+        let _ = std::fs::remove_dir(&link);
+        let out = std::process::Command::new("cmd")
+            .args([
+                "/C",
+                "mklink",
+                "/J",
+                &link.to_string_lossy(),
+                &target.to_string_lossy(),
+            ])
+            .output();
+        if out.map(|o| !o.status.success()).unwrap_or(true) {
+            // Some CI accounts cannot create junctions; skip rather than fail.
+            let _ = std::fs::remove_dir_all(&base);
+            return;
+        }
+        assert!(is_reparse_point(&link), "junction must be detected");
+        assert!(validate_path_for_delete(&link.to_string_lossy()).is_err());
+        let _ = std::fs::remove_dir(&link);
+        let _ = std::fs::remove_dir_all(&base);
+    }
+
     #[test]
     fn validate_rejects_empty_and_traversal() {
         assert!(validate_path_for_delete("").is_err());

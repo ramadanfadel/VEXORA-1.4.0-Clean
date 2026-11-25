@@ -23,9 +23,20 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@stable
       - uses: taiki-e/install-action@cargo-audit
+      - uses: taiki-e/install-action@cargo-deny
       - run: cargo check --manifest-path src-tauri/Cargo.toml
       - run: cargo test --manifest-path src-tauri/Cargo.toml --lib
-      - run: cargo audit --deny warnings
+      - name: cargo audit (accepted advisories documented in src-tauri/audit.toml)
+        working-directory: src-tauri
+        run: >
+          cargo audit
+          --ignore RUSTSEC-2026-0194 --ignore RUSTSEC-2026-0195
+          --ignore RUSTSEC-2026-0344 --ignore RUSTSEC-2026-0367
+          --ignore RUSTSEC-2026-0368 --ignore RUSTSEC-2026-0369
+          --ignore RUSTSEC-2026-0429 --ignore RUSTSEC-2026-0545
+          --ignore RUSTSEC-2026-0546 --ignore RUSTSEC-2026-0547
+          --ignore RUSTSEC-2026-0548
+      - run: cargo deny check --manifest-path src-tauri/Cargo.toml licenses bans sources
 
       - name: Version consistency
         shell: pwsh

@@ -183,6 +183,25 @@ fn newer_of(a: &str, b: &str) -> String {
     }
 }
 
+/// Only HTTPS URLs hosted by GitHub are accepted as update sources. An
+/// imported settings file must not be able to redirect an update to an
+/// arbitrary host.
+fn allowed_download_url(url: &str) -> bool {
+    let u = url.trim();
+    if !u.starts_with("https://") {
+        return false;
+    }
+    let rest = &u[8..];
+    let host = rest.split('/').next().unwrap_or("").to_lowercase();
+    matches!(
+        host.as_str(),
+        "github.com"
+            | "www.github.com"
+            | "objects.githubusercontent.com"
+            | "release-assets.githubusercontent.com"
+    )
+}
+
 /// Pick the installer asset from a GitHub release. Any asset name is accepted
 /// as long as it ends with `.exe`; a `sha256:` digest is mandatory.
 /// Returns (download url, sha256, version extracted from the filename).
@@ -198,7 +217,7 @@ fn github_asset(release: &serde_json::Value) -> (String, String, String) {
             continue;
         }
         let url = field(asset, "browser_download_url");
-        if url.is_empty() {
+        if url.is_empty() || !allowed_download_url(&url) {
             continue;
         }
         let digest = field(asset, "digest");
@@ -280,15 +299,11 @@ pub fn github_check(repo: &str, force: bool) -> UpdateInfo {
         .filter(|c| !force && util::now_unix().saturating_sub(c.fetched) < 300)
         .cloned();
     let url = format!("https://api.github.com/repos/{repo}/releases/latest");
-    let token = util::read_github_token();
     let script = format!(
         "[Console]::OutputEncoding=[System.Text.Encoding]::UTF8; \
          $ProgressPreference='SilentlyContinue'; \
          $h=@{{'User-Agent'='VEXORA-Updater'; 'Accept'='application/vnd.github+json'}}; \
-         if ('{}' -ne '') {{ $h['Authorization']='Bearer {}' }}; \
          (Invoke-WebRequest -UseBasicParsing -Headers $h -Uri '{}' -TimeoutSec 20).Content",
-        ps_literal(&token),
-        ps_literal(&token),
         ps_literal(&url)
     );
     let (text, stale) = if let Some(c) = fresh {
@@ -420,7 +435,8 @@ fn signature_decision(status: &str, message: &str, subject: &str) -> Result<(), 
     if !trusted_chain && !private_root {
         return Err(format!("Authenticode signature invalid ({status}: {message}) — update refused"));
     }
-    if !subject.contains("VEXORA") {
+    const EXPECTED_PUBLISHER: &str = "CN=VEXORA, O=Ramadan Fadel Mostafa";
+    if !subject.trim().eq_ignore_ascii_case(EXPECTED_PUBLISHER) {
         return Err(format!("unexpected installer publisher ({subject}) — update refused"));
     }
     Ok(())
@@ -455,6 +471,19 @@ mod tests {
     }
 
     #[test]
+    fn download_url_allowlist() {
+        assert!(allowed_download_url(
+            "https://github.com/ramadanfadel/VEXORA-1.4.0-Clean/releases/download/v1.5.0/a.exe"
+        ));
+        assert!(allowed_download_url(
+            "https://objects.githubusercontent.com/a/b.exe"
+        ));
+        assert!(!allowed_download_url("http://github.com/a.exe"));
+        assert!(!allowed_download_url("https://evil.example.com/a.exe"));
+        assert!(!allowed_download_url("https://github.com.evil.com/a.exe"));
+    }
+
+    #[test]
     fn extracts_version_from_any_tag() {
         assert_eq!(extract_version("VEXORA_1.3.7_x64"), "1.3.7");
         assert_eq!(extract_version("v2.0.1-beta"), "2.0.1");
@@ -466,13 +495,13 @@ mod tests {
     fn picks_any_exe_asset_with_sha256_digest() {
         let release: serde_json::Value = serde_json::from_str(
             r#"{"assets":[
-              {"name":"notes.txt","browser_download_url":"https://x/notes","digest":"sha256:abc"},
-              {"name":"weird-name-installer.EXE","browser_download_url":"https://x/setup.exe","digest":"sha256:0123456789012345678901234567890123456789012345678901234567890123"}
+              {"name":"notes.txt","browser_download_url":"https://github.com/x/notes","digest":"sha256:abc"},
+              {"name":"weird-name-installer.EXE","browser_download_url":"https://github.com/x/setup.exe","digest":"sha256:0123456789012345678901234567890123456789012345678901234567890123"}
             ]}"#,
         )
         .unwrap();
         let (url, sha, ver) = github_asset(&release);
-        assert_eq!(url, "https://x/setup.exe");
+        assert_eq!(url, "https://github.com/x/setup.exe");
         assert_eq!(sha.len(), 64);
         assert_eq!(ver, "");
     }
@@ -487,11 +516,11 @@ mod tests {
     #[test]
     fn refuses_exe_without_digest() {
         let release: serde_json::Value = serde_json::from_str(
-            r#"{"assets":[{"name":"setup.exe","browser_download_url":"https://x/setup.exe","digest":""}]}"#,
+            r#"{"assets":[{"name":"setup.exe","browser_download_url":"https://github.com/x/setup.exe","digest":""}]}"#,
         )
         .unwrap();
         let (url, sha, _) = github_asset(&release);
-        assert_eq!(url, "https://x/setup.exe");
+        assert_eq!(url, "https://github.com/x/setup.exe");
         assert!(sha.is_empty());
     }
 }
@@ -499,13 +528,32 @@ mod tests {
 /// Download the installer, verify its SHA-256 and launch it silently.
 /// Returns the local path of the installer.
 pub fn download_and_run(url: &str, sha256: &str) -> Result<String, String> {
+    if !allowed_download_url(url) {
+        return Err("update URL must be an HTTPS GitHub URL — refused".into());
+    }
     if url.starts_with("http://")
         && !url.starts_with("http://localhost")
         && !url.starts_with("http://127.0.0.1")
     {
         return Err("insecure HTTP download refused — use HTTPS".into());
     }
-    let dest = std::env::temp_dir().join(format!("VEXORA-setup-{}.exe", util::now_unix()));
+    // Unpredictable name + atomic create: a local process cannot pre-create
+    // the file and redirect what we later execute (TOCTOU).
+    let unique = util::now_unix()
+        ^ (std::process::id() as u64).wrapping_mul(6364136223846793005)
+        ^ std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .subsec_nanos() as u64;
+    let dest = std::env::temp_dir().join(format!("VEXORA-setup-{unique:016x}.exe"));
+    use std::io::Write;
+    let mut fh = std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&dest)
+        .map_err(|e| format!("temp file: {e}"))?;
+    let _ = fh.write_all(b"");
+    drop(fh);
     let dest_s = dest.to_string_lossy().to_string();
 
     let remote = url.starts_with("http://") || url.starts_with("https://");
@@ -577,8 +625,8 @@ pub fn download_and_run(url: &str, sha256: &str) -> Result<String, String> {
     let bat = std::env::temp_dir().join(format!("vexora-update-{}.bat", util::now_unix()));
     let script = format!(
         "@echo off\r\n\"{}\" /S\r\nping -n 6 127.0.0.1 >nul\r\nstart \"\" \"{}\"\r\n",
-        dest_s.replace('"', ""),
-        exe.replace('"', "")
+        dest_s,
+        exe
     );
     std::fs::write(&bat, script).map_err(|e| format!("relaunch script: {e}"))?;
     util::run_command("cmd", &["/C".to_string(), bat.to_string_lossy().to_string()])

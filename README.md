@@ -1,6 +1,6 @@
 # VEXORA — Clean Smarter. Run Faster.
 
-**Version:** 1.4.9
+**Version:** 1.5.0 — Trust & Security Update
 **Stack:** Rust + Tauri v2 · vanilla HTML/CSS/JS · Windows x64
 
 All-in-one Windows cleaner and optimizer with Arabic (RTL) and English (LTR) interfaces.

@@ -52,9 +52,6 @@ pub struct Settings {
     pub update_url: String,
     /// GitHub repository used as the update source.
     pub github_repo: String,
-    /// Optional Personal Access Token (public_repo scope) to avoid GitHub's
-    /// 60 requests/hour unauthenticated API limit.
-    pub github_token: String,
     // ---- Appearance Studio (Phase 1: stored, previewed, not yet applied) ----
     pub appearance_layout: String,
     pub appearance_accent: String,
@@ -121,7 +118,6 @@ impl Default for Settings {
             last_restore: 0,
             update_url: String::new(),
             github_repo: DEFAULT_GITHUB_REPO.into(),
-            github_token: String::new(),
             appearance_layout: "classic".into(),
             appearance_accent: "cyan".into(),
             appearance_mode: "dark".into(),
@@ -224,14 +220,8 @@ impl Settings {
                     .is_some();
                 let mut s: Self = serde_json::from_str(&text).unwrap_or_default();
                 s.sanitize();
-                // One-time migration: plaintext token -> DPAPI-protected file.
-                if !s.github_token.is_empty() {
-                    let token = s.github_token.clone();
-                    if util::store_github_token(&token).is_ok() {
-                        s.github_token.clear();
-                        let _ = s.save();
-                    }
-                }
+                // Remove any legacy token stored by earlier builds.
+                util::clear_legacy_github_token();
                 let was_migrated = s.appearance_migrated;
                 migrate_appearance(&mut s, has_layout);
                 if !was_migrated {
@@ -293,10 +283,6 @@ impl Settings {
         if self.last_page.is_empty() { self.last_page = "dashboard".into(); }
         if self.update_url.len() > 500 { self.update_url.truncate(500); }
         self.github_repo = normalize_github_repo(&self.github_repo);
-        self.github_token = self.github_token.trim().to_string();
-        if self.github_token.len() > 200 {
-            self.github_token.truncate(200);
-        }
         // One-way migration of the old default; custom repos are left alone.
         if self.github_repo == LEGACY_GITHUB_REPO {
             self.github_repo = DEFAULT_GITHUB_REPO.into();

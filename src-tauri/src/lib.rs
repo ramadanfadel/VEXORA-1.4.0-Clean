@@ -27,7 +27,6 @@ pub mod shredder;
 pub mod startup;
 pub mod state;
 pub mod sysinfo;
-pub mod hyperscan_adapter;
 pub mod tools;
 pub mod tune;
 pub mod uninstall;
@@ -135,11 +134,7 @@ fn get_settings(state: State<'_, AppState>) -> Settings {
 }
 
 #[tauri::command]
-fn save_settings(mut settings: Settings, state: State<'_, AppState>) -> Result<Settings, String> {
-    // Never keep the GitHub token in plaintext settings.json.
-    let token = settings.github_token.clone();
-    settings.github_token.clear();
-    util::store_github_token(&token)?;
+fn save_settings(settings: Settings, state: State<'_, AppState>) -> Result<Settings, String> {
     settings.save()?;
     *state.settings.lock().unwrap() = settings.clone();
     Ok(settings)
@@ -559,34 +554,16 @@ async fn dup_scan(
     min_size: u64,
     engine: String,
 ) -> Result<tools::DupResult, String> {
-    let engine_lower = engine.to_lowercase();
-    if engine_lower == "hyper" {
-        // Use czkawka-core powered HyperScan adapter
-        use crate::hyperscan_adapter::{scan, ScanEngine};
-        let root0 = roots.first().cloned().unwrap_or_default();
-        let res = tauri::async_runtime::spawn_blocking(move || {
-            let result = scan(ScanEngine::HyperScan, &root0, min_size);
-            // Convert ScanResult to DupResult for backward compatibility
-            tools::DupResult {
-                groups: Vec::new(), // groups will be populated in full integration
-                reclaimable: result.reclaimable,
-                scanned_files: result.scanned_files,
-                errors: result.errors,
-            }
-        });
-        let res = res.await.map_err(|e| e.to_string())?;
-        Ok(res)
-    } else {
-        // Use classic VEXORA engine (original find_duplicates)
-        use tauri::Emitter;
-        let res = tauri::async_runtime::spawn_blocking(move || {
-            tools::find_duplicates(&roots, min_size, |n| {
-                let _ = app.emit("dup-progress", n);
-            })
-        });
-        let res = res.await.map_err(|e| e.to_string())?;
-        Ok(res)
-    }
+    // Only the finished classic engine is public. The experimental HyperScan
+    // adapter returned placeholder groups and is hidden from all releases.
+    let _ = engine;
+    use tauri::Emitter;
+    let res = tauri::async_runtime::spawn_blocking(move || {
+        tools::find_duplicates(&roots, min_size, |n| {
+            let _ = app.emit("dup-progress", n);
+        })
+    });
+    res.await.map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -785,30 +762,6 @@ async fn font_delete(name: String, path: String, source: String) -> Result<bool,
     tauri::async_runtime::spawn_blocking(move || Ok(fonts::delete(&fi)))
         .await
         .map_err(|e| e.to_string())?
-}
-
-// ------------------------------------------------------------------ hyperscan
-// Standalone HyperScan command (experimental).
-// Uses czkawka-core under the hood; results are compatible with DupResult.
-// This is the backend command; the UI typically calls dup_scan with engine="hyper".
-#[tauri::command]
-#[allow(dead_code)] // experimental: kept for future UI wiring; currently reachable only via dup_scan(engine="hyper")
-async fn hyper_dup_scan(_root: String, _min_size: u64) -> Result<tools::DupResult, String> {
-    // Use czkawka-core powered HyperScan adapter
-    use crate::hyperscan_adapter::{scan, ScanEngine};
-    let res = tauri::async_runtime::spawn_blocking(move || {
-        let result = scan(ScanEngine::HyperScan, "", 0); // root/min_size not used in placeholder
-        // Convert ScanResult to DupResult for backward compatibility
-        tools::DupResult {
-            groups: Vec::new(),
-            reclaimable: result.reclaimable,
-            scanned_files: result.scanned_files,
-            errors: result.errors,
-        }
-    })
-    .await
-    .map_err(|e| e.to_string())?;
-    Ok(res)
 }
 
 // ------------------------------------------------------------------ drives

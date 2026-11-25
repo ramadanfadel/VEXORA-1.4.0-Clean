@@ -30,7 +30,14 @@ pub fn clean_one(c: &Cleaner, opts: &CleanOptions) -> CleanOutcome {
         Kind::Files => {
             let scanned = scan::scan_files(c, &opts.exclusions, 300_000);
             out.freed = 0;
-            let paths: Vec<String> = scanned.items.iter().map(|i| i.path.clone()).collect();
+            // Defence in depth: never hand a junction/symlink to any deletion
+            // branch, even if the caller skipped path validation.
+            let paths: Vec<String> = scanned
+                .items
+                .iter()
+                .map(|i| i.path.clone())
+                .filter(|p| !crate::safety::is_reparse_point(std::path::Path::new(p)))
+                .collect();
             let size_of: std::collections::HashMap<String, u64> = scanned
                 .items
                 .iter()
