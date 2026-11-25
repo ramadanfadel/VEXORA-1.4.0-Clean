@@ -144,8 +144,14 @@ pub fn list() -> Vec<Program> {
             );
             let actual_size = measure_actual_size(&location);
             let protection_level = detect_protection_level(&name, &publisher, &full);
-            // Determine install source from hive
-            let install_source = detect_install_source(hive);
+            // Determine install source from real registry evidence.
+            let install_source = detect_install_source(
+                hive,
+                &full,
+                &uninstall_string,
+                &location,
+                has_package,
+            );
 
             out.push(Program {
                 key: full,
@@ -667,12 +673,50 @@ fn detect_protection_level(name: &str, publisher: &str, key_path: &str) -> Prote
     ProtectionLevel::Safe
 }
 
-/// Determine the install source from the registry hive name.
-fn detect_install_source(hive: &str) -> InstallSource {
+fn looks_like_guid(s: &str) -> bool {
+    let s = s.trim().trim_matches(|c| c == '{' || c == '}');
+    s.len() == 36
+        && s.chars().enumerate().all(|(i, c)| {
+            if i == 8 || i == 13 || i == 18 || i == 23 {
+                c == '-'
+            } else {
+                c.is_ascii_hexdigit()
+            }
+        })
+}
+
+/// Determine where a program was registered, using actual registry evidence
+/// instead of only the hive name: PackageFullName / WindowsApps = Store,
+/// msiexec or an MSI GUID / Installer\Products key = MSI provider, otherwise
+/// the hive decides machine vs user uninstall key.
+fn detect_install_source(
+    hive: &str,
+    key_path: &str,
+    uninstall: &str,
+    location: &str,
+    has_package_fullname: bool,
+) -> InstallSource {
+    let key = key_path.to_lowercase();
+    let loc = location.to_lowercase();
+    let un = uninstall.to_lowercase();
+    if has_package_fullname
+        || key.contains("windowsapps")
+        || loc.contains("windowsapps")
+        || un.contains("windowsapps")
+    {
+        return InstallSource::StoreEntry;
+    }
+    let leaf = key_path.rsplit('\\').next().unwrap_or("");
+    if key.contains("installer\\products")
+        || key.contains("installer\\upgradecodes")
+        || looks_like_guid(leaf)
+        || un.contains("msiexec")
+    {
+        return InstallSource::MsiProvider;
+    }
     match hive {
-        "machine" => InstallSource::MachineUninstallKey,
+        "machine" | "machine32" => InstallSource::MachineUninstallKey,
         "user" => InstallSource::UserUninstallKey,
-        "machine32" => InstallSource::MachineUninstallKey,
         _ => InstallSource::Unknown,
     }
 }
@@ -1427,6 +1471,38 @@ mod tests {
             detect_protection_level("My Notepad", "ACME", "HKLM\\...\\Notepad"),
             ProtectionLevel::Safe
         );
+    }
+
+    #[test]
+    fn detects_install_source() {
+        assert_eq!(
+            detect_install_source("machine", r"HKEY_LOCAL_MACHINE\SOFTWARE\Classes\Installer\Products\ABC", "", "", false),
+            InstallSource::MsiProvider
+        );
+        assert_eq!(
+            detect_install_source(
+                "user",
+                r"HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Uninstall\X",
+                "",
+                "",
+                true
+            ),
+            InstallSource::StoreEntry
+        );
+        assert_eq!(
+            detect_install_source("machine32", r"HKEY_LOCAL_MACHINE\SOFTWARE\Uninstall\App", "", "", false),
+            InstallSource::MachineUninstallKey
+        );
+        assert_eq!(
+            detect_install_source("user", r"HKEY_CURRENT_USER\Software\Uninstall\App", "", "", false),
+            InstallSource::UserUninstallKey
+        );
+    }
+
+    #[test]
+    fn recognizes_guid() {
+        assert!(looks_like_guid("{12345678-1234-1234-1234-123456789ABC}"));
+        assert!(!looks_like_guid("NotAGuid"));
     }
 
     #[test]

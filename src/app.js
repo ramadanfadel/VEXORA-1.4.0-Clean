@@ -440,6 +440,7 @@ const DICT = {
     sensitive: "حساس",
     progSizeMeasured: "الحجم المقاس فعلياً",
     progInstallType: "نوع التثبيت",
+    progSource: "مصدر التسجيل",
     progSafety: "تقييم الأمان",
     typeWin32: "Win32",
     typeMsi: "MSI",
@@ -974,6 +975,7 @@ const DICT = {
   sensitive: "Sensitive",
   progSizeMeasured: "Measured on disk",
   progInstallType: "Install type",
+  progSource: "Registry source",
   progSafety: "Safety rating",
   typeWin32: "Win32",
   typeMsi: "MSI",
@@ -2482,6 +2484,16 @@ function progTypeLabel(p) {
   const map = { win32: "typeWin32", msi: "typeMsi", store: "typeStore", portable: "typePortable" };
   return t(map[(p && p.installType) || "unknown"] || "typeUnknown");
 }
+function progSourceLabel(p) {
+  const map = {
+    machineUninstallKey: "HKLM Uninstall",
+    userUninstallKey: "HKCU Uninstall",
+    msiProvider: "MSI Provider",
+    storeEntry: "Microsoft Store",
+    manualAdd: "Manual",
+  };
+  return map[p && p.installSource] || t("typeUnknown");
+}
 function progSafetyLabel(p) {
   const map = { safe: "safe", review: "review", sensitive: "sensitive" };
   return t(map[(p && p.protectionLevel) || "safe"] || "safe");
@@ -2727,6 +2739,7 @@ function showProgDetails(key) {
         typeof p.actualSizeKb === "number" ? ` <span class="tiny muted">(${esc(t("progSizeMeasured"))})</span>` : ""
       }</span></div>
       <div class="kv"><span>${esc(t("progInstallType"))}</span><span>${esc(progTypeLabel(p))}</span></div>
+      <div class="kv"><span>${esc(t("progSource"))}</span><span>${esc(progSourceLabel(p))}</span></div>
       <div class="kv"><span>${esc(t("progSafety"))}</span><span>${esc(progSafetyLabel(p))}</span></div>
       <div class="kv"><span>${esc(t("installedOn"))}</span><span>${esc(p.installDate || "—")}</span></div>
       <div class="kv"><span>Path</span><span class="ellipsis" style="max-width:360px;direction:ltr;text-align:start">${esc(p.location || "—")}</span></div>

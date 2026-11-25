@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.4.4
+- Real install-source detection: MSI provider via GUID/Installer keys or
+  msiexec, Store via PackageFullName/WindowsApps, else machine/user hive.
+  Shown in the program details dialog. 49 tests pass.
+
 ## 1.4.3
 - UI smoke test (`npm run test:ui`) using a mocked Tauri bridge — catches
   broken handlers and runtime errors.
