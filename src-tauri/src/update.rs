@@ -60,7 +60,8 @@ fn read_manifest(source: &str) -> Result<String, String> {
     if source.starts_with("http://") || source.starts_with("https://") {
         let safe = source.replace('\'', "''");
         let script = format!(
-            "$ProgressPreference='SilentlyContinue'; \
+            "[Console]::OutputEncoding=[System.Text.Encoding]::UTF8; \
+             $ProgressPreference='SilentlyContinue'; \
              (Invoke-WebRequest -UseBasicParsing -Uri '{safe}' -TimeoutSec 20).Content"
         );
         util::run_and_wait(
@@ -235,7 +236,8 @@ pub fn github_check(repo: &str) -> UpdateInfo {
     };
     let url = format!("https://api.github.com/repos/{repo}/releases/latest");
     let script = format!(
-        "$ProgressPreference='SilentlyContinue'; \
+        "[Console]::OutputEncoding=[System.Text.Encoding]::UTF8; \
+         $ProgressPreference='SilentlyContinue'; \
          (Invoke-WebRequest -UseBasicParsing -Headers @{{'User-Agent'='VEXORA-Updater'; 'Accept'='application/vnd.github+json'}} \
          -Uri '{}' -TimeoutSec 20).Content",
         ps_literal(&url)

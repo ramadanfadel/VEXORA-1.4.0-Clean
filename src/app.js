@@ -1192,16 +1192,22 @@ function vexPreviewMarkup(draft) {
     .join("")}</div><div class="vex-pv-content"><div class="vex-pv-hero"></div><div class="vex-pv-line"></div></div></div>`;
 }
 
-function vexRenderAppearancePreview() {
+function vexRenderAppearancePreview(rebuild) {
   const d = vexAppearanceDraft;
   const box = $("#vexPreview");
   if (!box || !d) return;
+  const changedLayout = box.dataset.layout !== d.layout;
   box.setAttribute("style", vexPreviewVars(d));
-  box.dataset.layout = d.layout;
-  box.innerHTML =
-    `<div class="vex-pv-head"><span class="vex-pv-logo">V</span>` +
-    `<span>${esc(t("appearancePreview"))} · ${esc(t("layout" + d.layout.charAt(0).toUpperCase() + d.layout.slice(1)))}</span></div>` +
-    vexPreviewMarkup(d);
+  // Only rebuild the preview DOM when the layout actually changes. Colour,
+  // mode and toggle changes just update CSS variables + active classes, so
+  // the studio stays responsive even on slower WebView2 installations.
+  if (rebuild !== false || changedLayout || !box.firstChild) {
+    box.dataset.layout = d.layout;
+    box.innerHTML =
+      `<div class="vex-pv-head"><span class="vex-pv-logo">V</span>` +
+      `<span>${esc(t("appearancePreview"))} · ${esc(t("layout" + d.layout.charAt(0).toUpperCase() + d.layout.slice(1)))}</span></div>` +
+      vexPreviewMarkup(d);
+  }
   $$("[data-vex-layout]").forEach((b) => b.classList.toggle("active", b.dataset.vexLayout === d.layout));
   $$("[data-vex-accent]").forEach((b) => b.classList.toggle("active", b.dataset.vexAccent === d.accent));
   $$("[data-vex-mode]").forEach((b) => b.classList.toggle("active", b.dataset.vexMode === d.mode));
@@ -4785,16 +4791,16 @@ async function renderSettings() {
   }));
   $$("[data-vex-accent]").forEach((b) => (b.onclick = () => {
     vexAppearanceDraft.accent = b.dataset.vexAccent;
-    vexRenderAppearancePreview();
+    vexRenderAppearancePreview(false);
   }));
   $$("[data-vex-mode]").forEach((b) => (b.onclick = () => {
     vexAppearanceDraft.mode = b.dataset.vexMode;
-    vexRenderAppearancePreview();
+    vexRenderAppearancePreview(false);
   }));
   $$("[data-vex-toggle]").forEach((b) => (b.onclick = () => {
     const k = b.dataset.vexToggle;
     vexAppearanceDraft[k] = !vexAppearanceDraft[k];
-    vexRenderAppearancePreview();
+    vexRenderAppearancePreview(false);
   }));
   if ($("#vexApply")) $("#vexApply").onclick = () => applyAppearance(vexAppearanceDraft);
   if ($("#vexReset")) $("#vexReset").onclick = () => {

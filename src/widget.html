@@ -343,16 +343,10 @@
       e.stopPropagation();
       $("menu").classList.toggle("show");
     });
-    let cleanArmed = 0;
     $("btnClean").onclick = async () => {
       const ar = !(state.settings && state.settings.language === "en");
-      const now = Date.now();
-      if (now - cleanArmed > 4000) {
-        cleanArmed = now;
-        showToast(ar ? "اضغط مرة أخرى للتأكيد" : "Click again to confirm");
-        return;
-      }
-      cleanArmed = 0;
+      // One click = immediate action. The quick clean only recycles safe temp
+      // files, so a second confirmation click is unnecessary friction.
       $("btnClean").disabled = true;
       showToast(ar ? "جارٍ التنظيف…" : "Cleaning…");
       try {

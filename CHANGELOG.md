@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.4.2
+- Faster cleaning: up to four cleaners in parallel, and no VSS restore point
+  when all selected work is reversible via the Recycle Bin.
+- Floating bubble: one click cleans immediately (no second confirmation).
+- Appearance Studio: only CSS variables/classes update on colour/mode changes.
+- UTF-8 decoding for GitHub release notes written in Arabic.
+- Added `VEXORA-Gaps-Report.md` with the full gap analysis. 47 tests pass.
+
 ## 1.4.1
 - Uninstaller now reports real install type (Win32 / MSI / Store / Portable),
   measured on-disk size from `InstallLocation` (no junctions followed), and a

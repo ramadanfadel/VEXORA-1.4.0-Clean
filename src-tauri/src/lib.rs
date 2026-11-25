@@ -251,7 +251,13 @@ async fn clean_cleaners(
         passes: s.shred_passes,
         exclusions: s.exclusions.clone(),
     };
-    let restore_first = s.restore_before_clean;
+    // A restore point is only needed for non-reversible work. When every
+    // selected cleaner is file-based and the Recycle Bin is on, cleaning is
+    // already recoverable — skip the very slow VSS snapshot.
+    let only_reversible_files = s.recycle_bin
+        && !s.shred
+        && selected.iter().all(|c| matches!(c.kind, Kind::Files));
+    let restore_first = s.restore_before_clean && !only_reversible_files;
 
     let result = tauri::async_runtime::spawn_blocking(move || {
         let mut summary = CleanSummary::default();
@@ -265,20 +271,34 @@ async fn clean_cleaners(
                 summary.restore = "admin".into();
             }
         }
-        for c in selected {
-            let out = clean::clean_one(&c, &opts);
-            summary.removed += out.removed;
-            summary.freed += out.freed;
-            summary.skipped += out.skipped;
-            let row = CleanRow {
-                id: c.id.clone(),
-                removed: out.removed,
-                freed: out.freed,
-                skipped: out.skipped,
-                errors: out.errors.clone(),
-            };
-            let _ = app.emit("clean:progress", row.clone());
-            summary.rows.push(row);
+        // Run up to four cleaners in parallel: file walks and registry reads
+        // are independent I/O, so this cuts the visible wait substantially.
+        for batch in selected.chunks(4) {
+            let mut handles = Vec::with_capacity(batch.len());
+            for c in batch {
+                let c = c.clone();
+                let o = opts.clone();
+                handles.push(std::thread::spawn(move || {
+                    let out = clean::clean_one(&c, &o);
+                    (c, out)
+                }));
+            }
+            for h in handles {
+                if let Ok((c, out)) = h.join() {
+                    summary.removed += out.removed;
+                    summary.freed += out.freed;
+                    summary.skipped += out.skipped;
+                    let row = CleanRow {
+                        id: c.id.clone(),
+                        removed: out.removed,
+                        freed: out.freed,
+                        skipped: out.skipped,
+                        errors: out.errors.clone(),
+                    };
+                    let _ = app.emit("clean:progress", row.clone());
+                    summary.rows.push(row);
+                }
+            }
         }
         summary
     })

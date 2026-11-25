@@ -16,6 +16,7 @@ pub struct CleanOutcome {
     pub errors: Vec<String>,
 }
 
+#[derive(Clone)]
 pub struct CleanOptions {
     pub recycle: bool,
     pub shred: bool,
