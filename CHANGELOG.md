@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.4.7
+- Manual "Check for updates" now bypasses the cache; background cache reduced
+  to 5 minutes. A newly published GitHub release is detected immediately.
+
 ## 1.4.6
 - Small Appearance Studio shortcut next to the theme/language/update buttons.
 - Updater relaunches VEXORA automatically after a silent install.

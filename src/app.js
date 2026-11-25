@@ -4848,7 +4848,9 @@ async function renderSettings() {
 async function showUpdate() {
   let info;
   try {
-    info = await call("check_update", {}, t("checkUpdate"));
+    // Manual check must bypass the short-lived cache so a newly published
+    // release is detected immediately.
+    info = await call("check_update", { force: true }, t("checkUpdate"));
   } catch (e) {
     return;
   }

@@ -258,7 +258,7 @@ fn write_release_cache(repo: &str, body: &str) {
     }
 }
 
-pub fn github_check(repo: &str) -> UpdateInfo {
+pub fn github_check(repo: &str, force: bool) -> UpdateInfo {
     let current = env!("CARGO_PKG_VERSION").to_string();
     let repo = crate::settings::normalize_github_repo(repo);
     let mut info = UpdateInfo {
@@ -277,7 +277,7 @@ pub fn github_check(repo: &str) -> UpdateInfo {
     let cached = read_release_cache(&repo);
     let fresh = cached
         .as_ref()
-        .filter(|c| util::now_unix().saturating_sub(c.fetched) < 1800)
+        .filter(|c| !force && util::now_unix().saturating_sub(c.fetched) < 300)
         .cloned();
     let url = format!("https://api.github.com/repos/{repo}/releases/latest");
     let token = crate::settings::Settings::load().github_token;
@@ -357,8 +357,13 @@ pub fn github_check(repo: &str) -> UpdateInfo {
 /// Preferred update source: GitHub releases; falls back to the legacy
 /// `latest.json` manifest when GitHub is unavailable.
 pub fn check() -> UpdateInfo {
+    check_with(false)
+}
+
+/// `force = true` bypasses the short-lived cache (used by the manual button).
+pub fn check_with(force: bool) -> UpdateInfo {
     let s = Settings::load();
-    let gh = github_check(&s.github_repo);
+    let gh = github_check(&s.github_repo, force);
     if gh.error.is_empty() {
         return gh;
     }

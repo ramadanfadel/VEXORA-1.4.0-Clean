@@ -1236,8 +1236,8 @@ fn restore_open() -> Result<(), String> {
 }
 
 #[tauri::command]
-async fn check_update() -> Result<update::UpdateInfo, String> {
-    tauri::async_runtime::spawn_blocking(update::check)
+async fn check_update(force: Option<bool>) -> Result<update::UpdateInfo, String> {
+    tauri::async_runtime::spawn_blocking(move || update::check_with(force.unwrap_or(false)))
         .await
         .map_err(|e| e.to_string())
 }
