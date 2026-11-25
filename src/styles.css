@@ -397,15 +397,6 @@ html[dir="rtl"] .toggle.on::after { transform: translateX(-18px); }
 .vex-update-dock svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 
 /* ------------------------- Appearance Studio (scoped) -------------------- */
-.vex-my-style {
-  display: inline-flex; align-items: center; gap: 6px; max-width: 100%;
-  margin-bottom: 6px; padding: 4px 9px; border-radius: 999px;
-  border: 1px solid var(--line); background: var(--card); color: var(--text);
-  font-size: 10px; cursor: pointer; transition: border-color .15s, color .15s;
-}
-.vex-my-style:hover { border-color: var(--accent); color: var(--accent); }
-.vex-my-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); flex: 0 0 8px; }
-
 .vex-appearance-body { display: grid; grid-template-columns: minmax(220px,.9fr) minmax(260px,1.1fr); gap: 16px; }
 @media (max-width: 900px) { .vex-appearance-body { grid-template-columns: 1fr; } }
 .vex-sec-label { font-size: 11px; color: var(--muted); margin: 10px 0 6px; }
@@ -468,8 +459,7 @@ html[dir="rtl"] .toggle.on::after { transform: translateX(-18px); }
 /* ------------------------- Layout 2: Icon Dock -------------------------- */
 body[data-vex-layout="dock"] .sidebar { width: 106px; flex: 0 0 106px; }
 body[data-vex-layout="dock"] .brand-text,
-body[data-vex-layout="dock"] .sidebar-credit strong,
-body[data-vex-layout="dock"] #vexMyStyleLabel { display: none; }
+body[data-vex-layout="dock"] .sidebar-credit strong { display: none; }
 body[data-vex-layout="dock"] .brand { justify-content: center; }
 body[data-vex-layout="dock"] .nav { gap: 5px; }
 body[data-vex-layout="dock"] .nav-item {
@@ -479,7 +469,6 @@ body[data-vex-layout="dock"] .nav-item {
 body[data-vex-layout="dock"] .nav-item svg { width: 20px; height: 20px; flex: 0 0 20px; }
 body[data-vex-layout="dock"] .nav-item.active { box-shadow: 0 0 16px var(--accent-soft); }
 body[data-vex-layout="dock"] .sidebar-footer { flex-wrap: wrap; justify-content: center; gap: 5px; }
-body[data-vex-layout="dock"] .vex-my-style { padding: 5px; }
 
 /* Global kill switches (also honour the OS reduced-motion setting). */
 html[data-vex-mode="light"] .btn.primary { color: #fff; }

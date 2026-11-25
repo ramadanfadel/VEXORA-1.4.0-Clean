@@ -1222,17 +1222,6 @@ function vexRenderAppearancePreview(rebuild) {
   $$("#vexAppearance [data-vex-toggle]").forEach((b) => b.classList.toggle("on", !!d[b.dataset.vexToggle]));
 }
 
-function vexUpdateMyStyleLabel() {
-  const el = $("#vexMyStyleLabel");
-  if (!el || !state.settings) return;
-  const d = vexDraftFromSettings();
-  el.textContent =
-    `${t("layout" + d.layout.charAt(0).toUpperCase() + d.layout.slice(1))} · ` +
-    `${t("accent" + d.accent.charAt(0).toUpperCase() + d.accent.slice(1))}`;
-  const dot = $("#vexMyStyleDot");
-  if (dot) dot.style.background = (VEX_ACCENTS[d.accent] || VEX_ACCENTS.cyan).hex;
-}
-
 /// Apply the committed appearance to the real shell. The floating bubble is a
 /// separate document and is intentionally unaffected.
 function vexApplyAppearance() {
@@ -4811,7 +4800,6 @@ async function renderSettings() {
     applyShell();
     vexAppearanceDraft = vexDraftFromSettings();
     vexRenderAppearancePreview();
-    vexUpdateMyStyleLabel();
     toast(t("appearanceApplied"));
   };
   vexRenderAppearancePreview();
@@ -4936,11 +4924,6 @@ async function boot() {
       $("#vexVersionUpdate").title = t("checkUpdate");
       $("#vexVersionUpdate").onclick = () => showUpdate();
     }
-    if ($("#vexMyStyle")) {
-      $("#vexMyStyle").title = t("myStyle");
-      $("#vexMyStyle").onclick = () => openAppearanceStudio();
-      vexUpdateMyStyleLabel();
-    }
     if ($("#appearanceBtn")) {
       $("#appearanceBtn").title = t("appearance");
       $("#appearanceBtn").onclick = () => openAppearanceStudio();
@@ -4968,7 +4951,6 @@ async function boot() {
     state.lang = state.lang === "ar" ? "en" : "ar";
     state.settings = await call("save_settings", { settings: { ...state.settings, language: state.lang } });
     applyShell();
-    vexUpdateMyStyleLabel();
     await loadCatalog();
     await go(state.page);
   };

@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.4.8
+- Removed the duplicate My Style button beside the version number. The single
+  Appearance Studio shortcut in the toolbar (next to theme/language/update) remains.
+
 ## 1.4.7
 - Manual "Check for updates" now bypasses the cache; background cache reduced
   to 5 minutes. A newly published GitHub release is detected immediately.

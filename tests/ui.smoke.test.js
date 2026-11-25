@@ -77,7 +77,7 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   assert.ok($("vexAppearance"), "Appearance Studio card must render");
   assert.ok($("vexPreview"), "live preview container must render");
   assert.ok($("vexPreview").children.length > 0, "live preview must have content");
-  assert.ok($("vexMyStyleLabel"), "My Style label must render");
+  assert.ok(!$("vexMyStyle"), "duplicate My Style button must be removed");
   assert.ok($("vexUpdateDock"), "update badge must render");
   assert.ok($("vexVersionUpdate"), "version update icon must render");
   assert.ok($("appearanceBtn"), "toolbar appearance button must render");
