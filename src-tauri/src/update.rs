@@ -11,7 +11,7 @@
 //! Downloads are verified with SHA-256 before the NSIS installer is launched,
 //! so a corrupted or tampered file is never executed.
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::{settings::Settings, util};
 
@@ -221,6 +221,43 @@ fn github_asset(release: &serde_json::Value) -> (String, String, String) {
 
 /// Query `https://api.github.com/repos/{owner}/{repo}/releases/latest`.
 /// The latest release is accepted regardless of its tag or asset name.
+#[derive(Serialize, Deserialize, Clone)]
+struct ReleaseCache {
+    repo: String,
+    fetched: u64,
+    body: String,
+}
+
+fn release_cache_path() -> std::path::PathBuf {
+    let dir = std::path::Path::new(&util::local_appdata()).join("VEXORA");
+    dir.join("github-release-cache.json")
+}
+
+fn read_release_cache(repo: &str) -> Option<ReleaseCache> {
+    let text = std::fs::read_to_string(release_cache_path()).ok()?;
+    let c: ReleaseCache = serde_json::from_str(&text).ok()?;
+    if c.repo == repo && !c.body.is_empty() {
+        Some(c)
+    } else {
+        None
+    }
+}
+
+fn write_release_cache(repo: &str, body: &str) {
+    let path = release_cache_path();
+    if let Some(dir) = path.parent() {
+        let _ = std::fs::create_dir_all(dir);
+    }
+    let c = ReleaseCache {
+        repo: repo.to_string(),
+        fetched: util::now_unix(),
+        body: body.to_string(),
+    };
+    if let Ok(text) = serde_json::to_string(&c) {
+        let _ = std::fs::write(path, text);
+    }
+}
+
 pub fn github_check(repo: &str) -> UpdateInfo {
     let current = env!("CARGO_PKG_VERSION").to_string();
     let repo = crate::settings::normalize_github_repo(repo);
@@ -234,15 +271,30 @@ pub fn github_check(repo: &str) -> UpdateInfo {
         source: format!("GitHub: {repo}"),
         error: String::new(),
     };
+    // GitHub's unauthenticated API allows only 60 requests/hour per IP. Reuse a
+    // recent cached response so opening the app and pressing "check" do not
+    // burn the quota; a stale copy is still better than no update at all.
+    let cached = read_release_cache(&repo);
+    let fresh = cached
+        .as_ref()
+        .filter(|c| util::now_unix().saturating_sub(c.fetched) < 1800)
+        .cloned();
     let url = format!("https://api.github.com/repos/{repo}/releases/latest");
+    let token = crate::settings::Settings::load().github_token;
     let script = format!(
         "[Console]::OutputEncoding=[System.Text.Encoding]::UTF8; \
          $ProgressPreference='SilentlyContinue'; \
-         (Invoke-WebRequest -UseBasicParsing -Headers @{{'User-Agent'='VEXORA-Updater'; 'Accept'='application/vnd.github+json'}} \
-         -Uri '{}' -TimeoutSec 20).Content",
+         $h=@{{'User-Agent'='VEXORA-Updater'; 'Accept'='application/vnd.github+json'}}; \
+         if ('{}' -ne '') {{ $h['Authorization']='Bearer {}' }}; \
+         (Invoke-WebRequest -UseBasicParsing -Headers $h -Uri '{}' -TimeoutSec 20).Content",
+        ps_literal(&token),
+        ps_literal(&token),
         ps_literal(&url)
     );
-    let text = match util::run_and_wait(
+    let (text, stale) = if let Some(c) = fresh {
+        (c.body, false)
+    } else {
+    match util::run_and_wait(
         "powershell",
         &[
             "-NoProfile",
@@ -253,12 +305,23 @@ pub fn github_check(repo: &str) -> UpdateInfo {
             script.as_str(),
         ],
     ) {
-        Ok(t) => t,
-        Err(e) => {
-            info.error = format!("GitHub request failed: {e}");
-            return info;
+        Ok(t) => {
+            write_release_cache(&repo, t.trim());
+            (t, false)
         }
+        Err(e) => {
+            if let Some(c) = cached {
+                (c.body, true)
+            } else {
+                info.error = format!("GitHub request failed: {e}");
+                return info;
+            }
+        }
+    }
     };
+    if stale {
+        info.notes = "GitHub API unavailable — showing cached release info.".into();
+    }
     let parsed: serde_json::Value = match serde_json::from_str(text.trim()) {
         Ok(v) => v,
         Err(e) => {
@@ -268,7 +331,11 @@ pub fn github_check(repo: &str) -> UpdateInfo {
     };
     let tag = field(&parsed, "tag_name");
     let tag_version = extract_version(&tag);
-    info.notes = field(&parsed, "body");
+    let mut notes = field(&parsed, "body");
+    if stale {
+        notes = format!("GitHub API unavailable — cached release info.\n{notes}");
+    }
+    info.notes = notes;
     let (asset_url, sha, asset_version) = github_asset(&parsed);
     info.latest = newer_of(&tag_version, &asset_version);
     if info.latest.is_empty() {

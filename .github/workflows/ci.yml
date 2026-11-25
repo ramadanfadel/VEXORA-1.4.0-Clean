@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  checks:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - run: npm ci
+      - run: node --check src/app.js
+      - run: npm run test:ui
+
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo check --manifest-path src-tauri/Cargo.toml
+      - run: cargo test --manifest-path src-tauri/Cargo.toml --lib
+
+      - name: Verify no secrets are committed
+        shell: pwsh
+        run: |
+          $bad = Get-ChildItem -Recurse -File -Force | Where-Object {
+            $_.Extension -in @('.pfx','.p12','.pem','.key','.snk') -and $_.FullName -notmatch '\\target\\|\\node_modules\\'
+          }
+          if ($bad) { $bad | ForEach-Object { Write-Error "Secret-like file: $($_.FullName)" } }

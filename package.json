@@ -8,9 +8,11 @@
     "dev": "tauri dev",
     "build": "tauri build --no-bundle",
     "build:installer": "tauri build",
-    "icon": "tauri icon assets/icon-source.png -o src-tauri/icons"
+    "icon": "tauri icon assets/icon-source.png -o src-tauri/icons",
+    "test:ui": "node tests/ui.smoke.test.js"
   },
   "devDependencies": {
-    "@tauri-apps/cli": "^2"
+    "@tauri-apps/cli": "^2",
+    "jsdom": "^31.0.1"
   }
 }

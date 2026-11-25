@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.4.3
+- UI smoke test (`npm run test:ui`) using a mocked Tauri bridge — catches
+  broken handlers and runtime errors.
+- GitHub Actions CI: `npm ci`, JS syntax check, UI smoke test, `cargo check`,
+  `cargo test`, and a secret-file guard.
+- Updater caches release data for 30 minutes and supports an optional GitHub
+  token to avoid the 60 requests/hour unauthenticated API limit.
+- Arabic release notes decode correctly as UTF-8.
+
 ## 1.4.2
 - Faster cleaning: up to four cleaners in parallel, and no VSS restore point
   when all selected work is reversible via the Recycle Bin.
