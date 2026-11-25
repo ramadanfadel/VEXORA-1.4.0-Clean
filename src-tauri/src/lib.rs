@@ -37,6 +37,9 @@ pub mod widget;
 
 use std::sync::atomic::Ordering;
 
+/// Last version for which an update toast was emitted (avoid duplicates).
+static UPDATE_NOTIFIED: std::sync::Mutex<Option<String>> = std::sync::Mutex::new(None);
+
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, State};
 
@@ -1886,15 +1889,29 @@ pub fn run() {
             let bs = settings::Settings::load();
             battery::apply(bs.battery_monitor_enabled, bs.battery_upper_threshold, bs.battery_lower_threshold);
 
-            // Notify the user about a newer GitHub release shortly after start.
+            // Notify about a new release at startup and keep checking while
+            // the app is running (every 10 minutes). Each version is announced
+            // only once thanks to the cache/dedupe below.
             {
                 use tauri::Emitter;
                 let handle = app.handle().clone();
                 std::thread::spawn(move || {
-                    std::thread::sleep(std::time::Duration::from_secs(3));
-                    let info = update::check();
-                    if info.available {
-                        let _ = handle.emit("update:available", &info);
+                    let mut first = true;
+                    loop {
+                        if !first {
+                            std::thread::sleep(std::time::Duration::from_secs(600));
+                        }
+                        first = false;
+                        std::thread::sleep(std::time::Duration::from_secs(3));
+                        let info = update::check();
+                        if info.available {
+                            if let Ok(mut last) = UPDATE_NOTIFIED.lock() {
+                                if last.as_deref() != Some(info.latest.as_str()) {
+                                    *last = Some(info.latest.clone());
+                                    let _ = handle.emit("update:available", &info);
+                                }
+                            }
+                        }
                     }
                 });
             }

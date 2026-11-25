@@ -1338,6 +1338,12 @@ function toast(msg, type = "ok") {
   setTimeout(() => el.remove(), 4200);
 }
 
+async function openAppearanceStudio() {
+  await go("settings");
+  const el = $("#vexAppearance");
+  if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
 function toastUpdate(info) {
   const box = $("#toasts");
   if (!box || !info || !info.available) return;
@@ -4930,12 +4936,12 @@ async function boot() {
     }
     if ($("#vexMyStyle")) {
       $("#vexMyStyle").title = t("myStyle");
-      $("#vexMyStyle").onclick = async () => {
-        await go("settings");
-        const el = $("#vexAppearance");
-        if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
-      };
+      $("#vexMyStyle").onclick = () => openAppearanceStudio();
       vexUpdateMyStyleLabel();
+    }
+    if ($("#appearanceBtn")) {
+      $("#appearanceBtn").title = t("appearance");
+      $("#appearanceBtn").onclick = () => openAppearanceStudio();
     }
     if ($("#vexUpdateDock")) {
       $("#vexUpdateDock").title = t("checkUpdate");

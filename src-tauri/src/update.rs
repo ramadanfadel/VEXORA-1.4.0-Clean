@@ -565,7 +565,18 @@ pub fn download_and_run(url: &str, sha256: &str) -> Result<String, String> {
         return Err(e);
     }
 
-    util::run_command(&dest_s, &["/S".to_string()])
+    // Run the installer and relaunch VEXORA afterwards. The .bat process is
+    // detached from the app: it survives the app quitting during the silent
+    // install, waits for the installer to finish, then starts the new exe.
+    let exe = util::exe_path();
+    let bat = std::env::temp_dir().join(format!("vexora-update-{}.bat", util::now_unix()));
+    let script = format!(
+        "@echo off\r\n\"{}\" /S\r\nping -n 6 127.0.0.1 >nul\r\nstart \"\" \"{}\"\r\n",
+        dest_s.replace('"', ""),
+        exe.replace('"', "")
+    );
+    std::fs::write(&bat, script).map_err(|e| format!("relaunch script: {e}"))?;
+    util::run_command("cmd", &["/C".to_string(), bat.to_string_lossy().to_string()])
         .map_err(|e| format!("installer: {e}"))?;
     Ok(dest_s)
 }

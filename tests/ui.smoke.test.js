@@ -80,6 +80,7 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   assert.ok($("vexMyStyleLabel"), "My Style label must render");
   assert.ok($("vexUpdateDock"), "update badge must render");
   assert.ok($("vexVersionUpdate"), "version update icon must render");
+  assert.ok($("appearanceBtn"), "toolbar appearance button must render");
 
   // Accent click must update preview without rebuilding it.
   const preview = $("vexPreview");

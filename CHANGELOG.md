@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.4.6
+- Small Appearance Studio shortcut next to the theme/language/update buttons.
+- Updater relaunches VEXORA automatically after a silent install.
+- Periodic update checks while the app is running (every 10 minutes), with
+  per-version dedupe so the notification appears immediately once.
+
 ## 1.4.5
 - Fixed Appearance Studio live preview: layout buttons no longer bubble to
   `body[data-vex-layout]`, which was resetting the draft to `grid`.
