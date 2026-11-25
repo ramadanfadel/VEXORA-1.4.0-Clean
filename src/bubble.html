@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <title>VEXORA Bubble</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: transparent;
+      font-family: "Segoe UI", Tahoma, sans-serif; }
+    .bubble {
+      width: 100%; height: 100%;
+      border-radius: 16px;
+      background: radial-gradient(circle at 30% 30%, #22d3ee, #0891b2 60%, #070c16);
+      box-shadow: 0 6px 18px rgba(0,0,0,.45), 0 0 0 2px rgba(34,211,238,.35);
+      display: flex; flex-direction: var(--dir, column);
+      justify-content: space-between; align-items: center;
+      gap: 8px; cursor: grab; user-select: none; color: #fff; position: relative;
+    }
+    .bubble:active { cursor: grabbing; transform: scale(.97); }
+    .bubble .logo { font-weight: 900; font-size: 15px; letter-spacing: .12em; }
+    .bubble .body-stats { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+    .bubble .bar { width: 46px; height: 3px; background: rgba(255,255,255,.25); border-radius: 2px; overflow: hidden; }
+    .bubble .bar i { display: block; height: 100%; background: #fff; border-radius: 2px; transition: width .6s; }
+    .hide-btn {
+      position: absolute; top: 4px; right: 4px; width: 16px; height: 16px;
+      border-radius: 50%; background: rgba(0,0,0,.4); border: 0; color: #fff;
+      font-size: 10px; line-height: 1; cursor: pointer; display: none;
+      align-items: center; justify-content: center;
+    }
+    .bubble:hover .hide-btn { display: flex; }
+    .hide-btn:hover { background: rgba(239,68,68,.8); }
+    .menu {
+      position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); margin-bottom: 6px;
+      background: #0d1829; border: 1px solid #1e3452; border-radius: 12px;
+      padding: 6px; min-width: 150px; box-shadow: 0 12px 32px rgba(0,0,0,.5);
+      display: none; flex-direction: column; gap: 2px; z-index: 100;
+    }
+    .menu.show { display: flex; }
+    .menu button { background: transparent; border: 0; color: #e8f1fb; padding: 8px 10px; border-radius: 8px; cursor: pointer; text-align: start; font-size: 12px; font-family: inherit; }
+    .menu button:hover { background: rgba(34,211,238,.14); color: #22d3ee; }
+  </style>
+</head>
+<body oncontextmenu="return false;">
+  <div class="bubble" id="bubble">
+    <button class="hide-btn" id="hideBtn" title="إخفاء">✕</button>
+    <div class="logo">VEXORA</div>
+    <div class="body-stats">
+      <div class="bar"><i id="cpuBar" style="width:0%"></i></div>
+      <div class="bar"><i id="ramBar" style="width:0%"></i></div>
+      <div class="stats" id="stats">—</div>
+    </div>
+    <div class="menu" id="menu">
+      <button id="mShow">إظهار VEXORA</button>
+      <button id="mBoost">تسريع</button>
+      <button id="mClean">تنظيف</button>
+      <button id="mSettings">الإعدادات</button>
+      <button id="mHide">إخفاء الفقاعة</button>
+      <button id="mQuit">خروج</button>
+    </div>
+  </div>
+  <script>
+    const TAURI = window.__TAURI__ || {};
+    const invoke = TAURI.core ? TAURI.core.invoke : async () => {};
+    const appWindow = TAURI.window ? TAURI.window.getCurrentWindow() : null;
+    const bubble = document.getElementById("bubble");
+    const menu = document.getElementById("menu");
+
+    // Adaptive layout: tall (column) when the bubble is taller than wide,
+    // wide (row) otherwise — follows the main window layout.
+    function applyLayout() {
+      const el = document.getElementById("bubble");
+      const tall = el.offsetHeight >= el.offsetWidth;
+      el.style.setProperty("--dir", tall ? "column" : "row");
+    }
+    applyLayout();
+    window.addEventListener("resize", applyLayout);
+    setInterval(applyLayout, 500);
+
+    // Dragging
+    bubble.addEventListener("mousedown", async (e) => {
+      if (e.button !== 0) return;
+      if (e.target.closest(".hide-btn") || e.target.closest(".menu")) return;
+      try { await appWindow.startDragging(); } catch (err) { console.error("drag err", err); }
+    });
+
+    // Right-click to show menu
+    bubble.addEventListener("contextmenu", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      menu.classList.toggle("show");
+      return false;
+    });
+
+    // Hide button
+    document.getElementById("hideBtn").addEventListener("click", (e) => {
+      e.stopPropagation();
+      invoke("set_bubble_visible", { visible: false });
+    });
+
+    // Click bubble (not drag) to show main window
+    let mouseDownTime = 0;
+    bubble.addEventListener("mousedown", () => { mouseDownTime = Date.now(); });
+    bubble.addEventListener("click", (e) => {
+      if (e.target.closest(".hide-btn") || e.target.closest(".menu")) return;
+      if (Date.now() - mouseDownTime > 250) return;
+      invoke("show_main_window");
+    });
+
+    document.addEventListener("click", (e) => {
+      if (!e.target.closest(".menu") && !e.target.closest(".bubble")) menu.classList.remove("show");
+    });
+    document.getElementById("mShow").onclick = () => { invoke("show_main_window"); menu.classList.remove("show"); };
+    document.getElementById("mBoost").onclick = async () => { await invoke("free_memory"); menu.classList.remove("show"); };
+    document.getElementById("mClean").onclick = () => { invoke("widget_open_page", { page: "clean" }); menu.classList.remove("show"); };
+    document.getElementById("mSettings").onclick = () => { invoke("widget_open_page", { page: "settings" }); menu.classList.remove("show"); };
+    document.getElementById("mHide").onclick = () => { invoke("set_bubble_visible", { visible: false }); menu.classList.remove("show"); };
+    document.getElementById("mQuit").onclick = () => invoke("quit_app");
+
+    async function refresh() {
+      try {
+        const h = await invoke("get_health");
+        const cpu = h.cpu || 0;
+        const memPct = h.memTotal ? (h.memUsed / h.memTotal * 100) : 0;
+        document.getElementById("cpuBar").style.width = cpu.toFixed(0) + "%";
+        document.getElementById("ramBar").style.width = memPct.toFixed(0) + "%";
+        document.getElementById("stats").textContent = cpu.toFixed(0) + "% · " + memPct.toFixed(0) + "%";
+      } catch (e) {}
+    }
+    refresh();
+    setInterval(refresh, 3000);
+  </script>
+</body>
+</html>

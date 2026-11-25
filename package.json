@@ -1,0 +1,16 @@
+{
+  "name": "vexora",
+  "version": "1.1.0",
+  "private": true,
+  "description": "VEXORA — Clean Smarter. Run Faster. All-in-one PC cleaner, privacy and speed suite.",
+  "scripts": {
+    "tauri": "tauri",
+    "dev": "tauri dev",
+    "build": "tauri build --no-bundle",
+    "build:installer": "tauri build",
+    "icon": "tauri icon assets/icon-source.png -o src-tauri/icons"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2"
+  }
+}

@@ -1,0 +1,26 @@
+# Build output
+node_modules/
+src-tauri/target/
+src-tauri/gen/
+
+# Secrets / signing (never commit)
+*.pfx
+*.p12
+*.pem
+*.key
+*.snk
+*.cer
+*.crt
+.env
+
+# Runtime user data
+settings.json
+history.jsonl
+log.txt
+latest.json
+
+# Temp / scratch
+tmp.txt
+tmp_check.txt
+*.tmp
+*.log
