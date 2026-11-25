@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.4.5
+- Fixed Appearance Studio live preview: layout buttons no longer bubble to
+  `body[data-vex-layout]`, which was resetting the draft to `grid`.
+  Verified in a real Chromium browser and in the UI smoke test.
+
 ## 1.4.4
 - Real install-source detection: MSI provider via GUID/Installer keys or
   msiexec, Store via PackageFullName/WindowsApps, else machine/user hive.

@@ -94,7 +94,7 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   // Layout click rebuilds the preview with the new structure.
   const dock = window.document.querySelector('[data-vex-layout="dock"]');
   assert.ok(dock, "dock layout button must exist");
-  await dock.onclick();
+  dock.click();
   await wait(20);
   assert.strictEqual(preview.dataset.layout, "dock", "layout change must rebuild the preview");
 

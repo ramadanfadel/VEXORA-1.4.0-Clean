@@ -1214,10 +1214,12 @@ function vexRenderAppearancePreview(rebuild) {
       `<span>${esc(t("appearancePreview"))} · ${esc(t("layout" + d.layout.charAt(0).toUpperCase() + d.layout.slice(1)))}</span></div>` +
       vexPreviewMarkup(d);
   }
-  $$("[data-vex-layout]").forEach((b) => b.classList.toggle("active", b.dataset.vexLayout === d.layout));
-  $$("[data-vex-accent]").forEach((b) => b.classList.toggle("active", b.dataset.vexAccent === d.accent));
-  $$("[data-vex-mode]").forEach((b) => b.classList.toggle("active", b.dataset.vexMode === d.mode));
-  $$("[data-vex-toggle]").forEach((b) => b.classList.toggle("on", !!d[b.dataset.vexToggle]));
+  // Scope to the studio card: `body[data-vex-layout]` also matches these
+  // selectors and its click handler would otherwise reset the draft.
+  $$("#vexAppearance [data-vex-layout]").forEach((b) => b.classList.toggle("active", b.dataset.vexLayout === d.layout));
+  $$("#vexAppearance [data-vex-accent]").forEach((b) => b.classList.toggle("active", b.dataset.vexAccent === d.accent));
+  $$("#vexAppearance [data-vex-mode]").forEach((b) => b.classList.toggle("active", b.dataset.vexMode === d.mode));
+  $$("#vexAppearance [data-vex-toggle]").forEach((b) => b.classList.toggle("on", !!d[b.dataset.vexToggle]));
 }
 
 function vexUpdateMyStyleLabel() {
@@ -4807,19 +4809,23 @@ async function renderSettings() {
     toast(t("appearanceApplied"));
   };
   vexRenderAppearancePreview();
-  $$("[data-vex-layout]").forEach((b) => (b.onclick = () => {
+  $$("#vexAppearance [data-vex-layout]").forEach((b) => (b.onclick = (e) => {
+    e.stopPropagation();
     vexAppearanceDraft.layout = b.dataset.vexLayout;
     vexRenderAppearancePreview();
   }));
-  $$("[data-vex-accent]").forEach((b) => (b.onclick = () => {
+  $$("#vexAppearance [data-vex-accent]").forEach((b) => (b.onclick = (e) => {
+    e.stopPropagation();
     vexAppearanceDraft.accent = b.dataset.vexAccent;
     vexRenderAppearancePreview(false);
   }));
-  $$("[data-vex-mode]").forEach((b) => (b.onclick = () => {
+  $$("#vexAppearance [data-vex-mode]").forEach((b) => (b.onclick = (e) => {
+    e.stopPropagation();
     vexAppearanceDraft.mode = b.dataset.vexMode;
     vexRenderAppearancePreview(false);
   }));
-  $$("[data-vex-toggle]").forEach((b) => (b.onclick = () => {
+  $$("#vexAppearance [data-vex-toggle]").forEach((b) => (b.onclick = (e) => {
+    e.stopPropagation();
     const k = b.dataset.vexToggle;
     vexAppearanceDraft[k] = !vexAppearanceDraft[k];
     vexRenderAppearancePreview(false);
