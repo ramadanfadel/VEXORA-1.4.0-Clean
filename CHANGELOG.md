@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.4.9
+- Trust phase: GitHub token moved to Windows DPAPI-encrypted storage (never
+  plaintext in settings.json); Dependabot + `cargo audit` + `npm audit` in CI;
+  SBOM and SHA256SUMS generator; version consistency check; unified docs.
+
 ## 1.4.8
 - Removed the duplicate My Style button beside the version number. The single
   Appearance Studio shortcut in the toolbar (next to theme/language/update) remains.

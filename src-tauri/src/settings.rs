@@ -224,6 +224,14 @@ impl Settings {
                     .is_some();
                 let mut s: Self = serde_json::from_str(&text).unwrap_or_default();
                 s.sanitize();
+                // One-time migration: plaintext token -> DPAPI-protected file.
+                if !s.github_token.is_empty() {
+                    let token = s.github_token.clone();
+                    if util::store_github_token(&token).is_ok() {
+                        s.github_token.clear();
+                        let _ = s.save();
+                    }
+                }
                 let was_migrated = s.appearance_migrated;
                 migrate_appearance(&mut s, has_layout);
                 if !was_migrated {

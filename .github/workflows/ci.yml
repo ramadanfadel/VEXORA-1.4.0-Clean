@@ -18,10 +18,24 @@ jobs:
       - run: npm ci
       - run: node --check src/app.js
       - run: npm run test:ui
+      - run: npm audit --audit-level=high
+      - run: npm pkg get version
 
       - uses: dtolnay/rust-toolchain@stable
+      - uses: taiki-e/install-action@cargo-audit
       - run: cargo check --manifest-path src-tauri/Cargo.toml
       - run: cargo test --manifest-path src-tauri/Cargo.toml --lib
+      - run: cargo audit --deny warnings
+
+      - name: Version consistency
+        shell: pwsh
+        run: |
+          $rust = (Select-String -Path src-tauri/Cargo.toml -Pattern '^version = "([^"]+)"').Matches[0].Groups[1].Value
+          $json = (Get-Content src-tauri/tauri.conf.json -Raw | ConvertFrom-Json).version
+          $npm  = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          if ($rust -ne $json -or $rust -ne $npm) {
+            throw "Version mismatch: cargo=$rust tauri=$json npm=$npm"
+          }
 
       - name: Verify no secrets are committed
         shell: pwsh

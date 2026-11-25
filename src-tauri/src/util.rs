@@ -372,6 +372,62 @@ pub fn run_command(program: &str, args: &[String]) -> Result<(), String> {
         .map_err(|e| format!("{program}: {e}"))
 }
 
+/// Where the encrypted GitHub token is stored (DPAPI-protected, current user).
+pub fn github_token_path() -> std::path::PathBuf {
+    std::path::Path::new(&local_appdata()).join("VEXORA").join("github-token.dat")
+}
+
+fn ps_literal(s: &str) -> String {
+    s.replace('\'', "''")
+}
+
+/// Store the token with Windows DPAPI instead of plaintext settings.json.
+pub fn store_github_token(token: &str) -> Result<(), String> {
+    let path = github_token_path();
+    if let Some(dir) = path.parent() {
+        std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
+    }
+    if token.trim().is_empty() {
+        let _ = std::fs::remove_file(&path);
+        return Ok(());
+    }
+    let p = ps_literal(&path.to_string_lossy());
+    let t = ps_literal(token.trim());
+    let script = format!(
+        "$p='{}'; Remove-Item -LiteralPath $p -ErrorAction SilentlyContinue; \
+         $s=ConvertTo-SecureString -String '{}' -AsPlainText -Force; \
+         ConvertFrom-SecureString -SecureString $s | Set-Content -LiteralPath $p -Encoding UTF8",
+        p, t
+    );
+    run_and_wait(
+        "powershell",
+        &["-NoProfile", "-NonInteractive", "-Command", script.as_str()],
+    )?;
+    Ok(())
+}
+
+/// Read the DPAPI-protected token. Returns empty when absent or unreadable.
+pub fn read_github_token() -> String {
+    let path = github_token_path();
+    if !path.is_file() {
+        return String::new();
+    }
+    let p = ps_literal(&path.to_string_lossy());
+    let script = format!(
+        "$s=Get-Content -LiteralPath '{}' -Raw | ConvertTo-SecureString; \
+         $m=[Runtime.InteropServices.Marshal]; $b=$m::SecureStringToBSTR($s); \
+         $m::PtrToStringUni($b)",
+        p
+    );
+    run_and_wait(
+        "powershell",
+        &["-NoProfile", "-NonInteractive", "-Command", script.as_str()],
+    )
+    .unwrap_or_default()
+    .trim()
+    .to_string()
+}
+
 pub fn run_and_wait(program: &str, args: &[&str]) -> Result<String, String> {
     let owned: Vec<String> = args.iter().map(|a| a.to_string()).collect();
     run_and_wait_vec(program, &owned)

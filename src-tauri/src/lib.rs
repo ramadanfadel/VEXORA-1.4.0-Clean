@@ -135,7 +135,11 @@ fn get_settings(state: State<'_, AppState>) -> Settings {
 }
 
 #[tauri::command]
-fn save_settings(state: State<'_, AppState>, settings: Settings) -> Result<Settings, String> {
+fn save_settings(mut settings: Settings, state: State<'_, AppState>) -> Result<Settings, String> {
+    // Never keep the GitHub token in plaintext settings.json.
+    let token = settings.github_token.clone();
+    settings.github_token.clear();
+    util::store_github_token(&token)?;
     settings.save()?;
     *state.settings.lock().unwrap() = settings.clone();
     Ok(settings)

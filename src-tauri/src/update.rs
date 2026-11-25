@@ -280,7 +280,7 @@ pub fn github_check(repo: &str, force: bool) -> UpdateInfo {
         .filter(|c| !force && util::now_unix().saturating_sub(c.fetched) < 300)
         .cloned();
     let url = format!("https://api.github.com/repos/{repo}/releases/latest");
-    let token = crate::settings::Settings::load().github_token;
+    let token = util::read_github_token();
     let script = format!(
         "[Console]::OutputEncoding=[System.Text.Encoding]::UTF8; \
          $ProgressPreference='SilentlyContinue'; \
