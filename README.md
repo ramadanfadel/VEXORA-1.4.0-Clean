@@ -1,6 +1,6 @@
 # VEXORA — Clean Smarter. Run Faster.
 
-**Version:** 1.4.0  
+**Version:** 1.4.1  
 **Stack:** Rust + Tauri v2 · vanilla HTML/CSS/JS · Windows x64
 
 All-in-one Windows cleaner and optimizer with Arabic (RTL) and English (LTR) interfaces.
@@ -14,7 +14,7 @@ All-in-one Windows cleaner and optimizer with Arabic (RTL) and English (LTR) int
 - File Shredder + Restart Manager unlocker, Font Manager
 - Adobe/design cache cleaner, drivers & runtimes check (winget)
 - Hardware Monitor (WMI + `nvidia-smi`, `N/A` fallback, no admin required)
-- Secure updates from GitHub Releases: SHA-256 + Authenticode verification, in-app toast
+- Secure updates from GitHub Releases (`ramadanfadel/VEXORA-1.4.0-Clean`): SHA-256 + Authenticode verification, in-app toast
 - Floating smart bubble with quick clean and live stats
 - **Appearance Studio**: Classic / Icon Dock / Icon Grid / Glass Neon layouts, 6 accent colors, dark/light modes, live preview, `My Style` shortcut
 

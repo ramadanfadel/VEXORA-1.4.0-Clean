@@ -4,6 +4,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::util;
 
+/// Default GitHub repository used by the updater.
+pub const DEFAULT_GITHUB_REPO: &str = "ramadanfadel/VEXORA-1.4.0-Clean";
+const LEGACY_GITHUB_REPO: &str = "ramadanfadel/VEXORA";
+
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase", default)]
 pub struct Schedule {
@@ -46,7 +50,7 @@ pub struct Settings {
     pub restore_before_tweaks: bool,
     pub last_restore: u64,
     pub update_url: String,
-    /// GitHub repository used as the update source, e.g. `ramadanfadel/VEXORA`.
+    /// GitHub repository used as the update source.
     pub github_repo: String,
     // ---- Appearance Studio (Phase 1: stored, previewed, not yet applied) ----
     pub appearance_layout: String,
@@ -113,7 +117,7 @@ impl Default for Settings {
             restore_before_tweaks: false,
             last_restore: 0,
             update_url: String::new(),
-            github_repo: "ramadanfadel/VEXORA".into(),
+            github_repo: DEFAULT_GITHUB_REPO.into(),
             appearance_layout: "classic".into(),
             appearance_accent: "cyan".into(),
             appearance_mode: "dark".into(),
@@ -189,7 +193,7 @@ pub fn normalize_github_repo(input: &str) -> String {
     if valid {
         s.to_string()
     } else {
-        "ramadanfadel/VEXORA".into()
+        DEFAULT_GITHUB_REPO.into()
     }
 }
 
@@ -277,6 +281,10 @@ impl Settings {
         if self.last_page.is_empty() { self.last_page = "dashboard".into(); }
         if self.update_url.len() > 500 { self.update_url.truncate(500); }
         self.github_repo = normalize_github_repo(&self.github_repo);
+        // One-way migration of the old default; custom repos are left alone.
+        if self.github_repo == LEGACY_GITHUB_REPO {
+            self.github_repo = DEFAULT_GITHUB_REPO.into();
+        }
         const LAYOUTS: &[&str] = &["classic", "dock", "grid", "glass"];
         const ACCENTS: &[&str] = &["cyan", "purple", "blue", "emerald", "pink", "amber"];
         if !LAYOUTS.contains(&self.appearance_layout.as_str()) {
@@ -303,16 +311,16 @@ mod tests {
 
     #[test]
     fn normalizes_github_repo() {
-        assert_eq!(normalize_github_repo("ramadanfadel/VEXORA"), "ramadanfadel/VEXORA");
+        assert_eq!(normalize_github_repo(DEFAULT_GITHUB_REPO), DEFAULT_GITHUB_REPO);
         assert_eq!(
-            normalize_github_repo("https://github.com/ramadanfadel/VEXORA/"),
-            "ramadanfadel/VEXORA"
+            normalize_github_repo("https://github.com/ramadanfadel/VEXORA-1.4.0-Clean/"),
+            DEFAULT_GITHUB_REPO
         );
         assert_eq!(
-            normalize_github_repo("https://github.com/ramadanfadel/VEXORA/releases/tag/VEXORA_1.3.7_x64"),
-            "ramadanfadel/VEXORA"
+            normalize_github_repo("https://github.com/ramadanfadel/VEXORA-1.4.0-Clean/releases/tag/v1.4.0"),
+            DEFAULT_GITHUB_REPO
         );
-        assert_eq!(normalize_github_repo("bad input"), "ramadanfadel/VEXORA");
+        assert_eq!(normalize_github_repo("bad input"), DEFAULT_GITHUB_REPO);
     }
 
     #[test]
@@ -331,6 +339,17 @@ mod tests {
         migrate_appearance(&mut old, true);
         assert_eq!(old.appearance_layout, "classic");
         assert!(old.appearance_migrated);
+    }
+
+    #[test]
+    fn legacy_github_repo_is_migrated() {
+        let mut s = Settings::default();
+        s.github_repo = LEGACY_GITHUB_REPO.into();
+        s.sanitize();
+        assert_eq!(s.github_repo, DEFAULT_GITHUB_REPO);
+        s.github_repo = "someone/custom-repo".into();
+        s.sanitize();
+        assert_eq!(s.github_repo, "someone/custom-repo");
     }
 
     #[test]

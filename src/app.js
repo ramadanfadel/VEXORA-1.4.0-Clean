@@ -237,7 +237,7 @@ const DICT = {
     hwmonValue: "القراءة",
     hwmonNoSensors: "لا توجد مستشعرات متاحة على هذا الجهاز.",
     githubRepo: "مستودع GitHub للتحديثات",
-    githubRepoHint: "مثال: ramadanfadel/VEXORA — يقبل أي اسم إصدار أو ملف تثبيت.",
+    githubRepoHint: "مثال: ramadanfadel/VEXORA-1.4.0-Clean — يقبل أي اسم إصدار أو ملف تثبيت.",
     githubPage: "صفحتي على GitHub",
     updateToast: "إصدار جديد متاح",
     updateToastBody: "تحديث VEXORA متاح للتثبيت",
@@ -434,6 +434,16 @@ const DICT = {
     noMatch: "لم يتم العثور على برنامج مطابق",
     deepScanLevel: "مستوى الفحص العميق",
     safe: "آمن",
+    review: "مراجعة",
+    sensitive: "حساس",
+    progSizeMeasured: "الحجم المقاس فعلياً",
+    progInstallType: "نوع التثبيت",
+    progSafety: "تقييم الأمان",
+    typeWin32: "Win32",
+    typeMsi: "MSI",
+    typeStore: "Microsoft Store",
+    typePortable: "محمول (Portable)",
+    typeUnknown: "غير معروف",
     moderate: "متوسط",
     advanced: "متقدم",
     credit: "تصميم وإعداد أ. رمضان فاضل مصطفى (أبو مريم)",
@@ -759,7 +769,7 @@ const DICT = {
     hwmonValue: "Reading",
     hwmonNoSensors: "No sensors are exposed on this device.",
     githubRepo: "GitHub repo for updates",
-    githubRepoHint: "Example: ramadanfadel/VEXORA — any release tag or installer name works.",
+    githubRepoHint: "Example: ramadanfadel/VEXORA-1.4.0-Clean — any release tag or installer name works.",
     githubPage: "My GitHub page",
     updateToast: "New version available",
     updateToastBody: "A VEXORA update is ready to install",
@@ -956,6 +966,16 @@ const DICT = {
     noMatch: "No matching program found",
     deepScanLevel: "Deep scan level",
     safe: "Safe",
+  review: "Review",
+  sensitive: "Sensitive",
+  progSizeMeasured: "Measured on disk",
+  progInstallType: "Install type",
+  progSafety: "Safety rating",
+  typeWin32: "Win32",
+  typeMsi: "MSI",
+  typeStore: "Microsoft Store",
+  typePortable: "Portable",
+  typeUnknown: "Unknown",
     moderate: "Moderate",
     advanced: "Advanced",
     credit: "Designed & developed by Ramadan Fadel Mostafa (Abu Maryam)",
@@ -2445,6 +2465,18 @@ function progIconUrl(key) {
   const b64 = state.progIcons[key];
   return b64 ? `data:image/png;base64,${b64}` : "";
 }
+function progSizeKb(p) {
+  return p && typeof p.actualSizeKb === "number" ? p.actualSizeKb : (p && p.sizeKb) || 0;
+}
+function progTypeLabel(p) {
+  const map = { win32: "typeWin32", msi: "typeMsi", store: "typeStore", portable: "typePortable" };
+  return t(map[(p && p.installType) || "unknown"] || "typeUnknown");
+}
+function progSafetyLabel(p) {
+  const map = { safe: "safe", review: "review", sensitive: "sensitive" };
+  return t(map[(p && p.protectionLevel) || "safe"] || "safe");
+}
+
 function progIconWrap(p, size, cls) {
   const src = progIconUrl(p.key);
   return `<span class="prog-icon-wrap ${cls}" style="width:${size}px;height:${size}px">
@@ -2681,7 +2713,11 @@ function showProgDetails(key) {
       </div>
       <div class="kv"><span>${esc(t("publisher"))}</span><span>${esc(p.publisher || "—")}</span></div>
       <div class="kv"><span>${esc(t("version"))}</span><span>${esc(p.version || "—")}</span></div>
-      <div class="kv"><span>${esc(t("size"))}</span><span>${p.sizeKb ? fmtBytes(p.sizeKb * 1024) : "—"}</span></div>
+      <div class="kv"><span>${esc(t("size"))}</span><span>${progSizeKb(p) ? fmtBytes(progSizeKb(p) * 1024) : "—"}${
+        typeof p.actualSizeKb === "number" ? ` <span class="tiny muted">(${esc(t("progSizeMeasured"))})</span>` : ""
+      }</span></div>
+      <div class="kv"><span>${esc(t("progInstallType"))}</span><span>${esc(progTypeLabel(p))}</span></div>
+      <div class="kv"><span>${esc(t("progSafety"))}</span><span>${esc(progSafetyLabel(p))}</span></div>
       <div class="kv"><span>${esc(t("installedOn"))}</span><span>${esc(p.installDate || "—")}</span></div>
       <div class="kv"><span>Path</span><span class="ellipsis" style="max-width:360px;direction:ltr;text-align:start">${esc(p.location || "—")}</span></div>
       <div style="margin-top:8px;display:flex;gap:8px;align-items:center">
@@ -2762,12 +2798,12 @@ async function renderUninstall() {
   );
   const by = state.progSort;
   list = list.slice().sort((a, b) => {
-    if (by === "size") return (b.sizeKb || 0) - (a.sizeKb || 0);
+    if (by === "size") return progSizeKb(b) - progSizeKb(a);
     if (by === "date") return String(b.installDate || "").localeCompare(String(a.installDate || ""));
     if (by === "publisher") return String(a.publisher || "").localeCompare(String(b.publisher || ""));
     return String(a.name || "").localeCompare(String(b.name || ""));
   });
-  const totalSize = state.progs.reduce((a, p) => a + (p.sizeKb || 0) * 1024, 0);
+  const totalSize = state.progs.reduce((a, p) => a + progSizeKb(p) * 1024, 0);
   const selCount = list.filter((p) => state.progSel.has(p.key)).length;
   const view = state.progView;
 
@@ -2782,7 +2818,7 @@ async function renderUninstall() {
           ${progIconWrap(p, 44, "grid")}
           <div class="prog-card-name ellipsis" title="${esc(p.name)}">${esc(p.name)}</div>
           <div class="tiny muted ellipsis" style="max-width:100%">${esc(p.publisher || "")}</div>
-          <div class="tiny muted">${p.sizeKb ? fmtBytes(p.sizeKb * 1024) : "—"}</div>
+          <div class="tiny muted">${progSizeKb(p) ? fmtBytes(progSizeKb(p) * 1024) : "—"}</div>
           <button class="btn small primary prog-card-btn" data-progopen="${esc(p.key)}">${esc(t("uninstall"))}</button>
         </div>`).join("")}</div>`
       : `<div class="empty-state">${esc(t("nothingFound"))}</div>`;
@@ -2795,7 +2831,7 @@ async function renderUninstall() {
         <td><div class="prog-name">${progIconWrap(p, 26, "list")}<div class="grow min0"><div class="prog-title ellipsis">${esc(p.name)}</div><div class="tiny muted ellipsis">${esc(p.publisher || "")}</div></div></div></td>
         ${detail ? `<td class="tiny muted ellipsis" style="max-width:180px">${esc(p.publisher || "—")}</td><td class="tiny muted ellipsis" style="max-width:240px;direction:ltr;text-align:start">${esc(p.location || "—")}</td>` : ""}
         <td class="num">${esc(p.version || "—")}</td>
-        <td class="num">${p.sizeKb ? fmtBytes(p.sizeKb * 1024) : "—"}</td>
+        <td class="num">${progSizeKb(p) ? fmtBytes(progSizeKb(p) * 1024) : "—"}</td>
         <td class="num">${esc(p.installDate || "—")}</td>
         <td style="text-align:end"><button class="btn small" data-progopen="${esc(p.key)}">${esc(t("uninstall"))}</button></td>
       </tr>`)
@@ -4437,7 +4473,7 @@ async function renderSettings() {
         <input type="text" id="updateUrl" value="${esc(s.updateUrl || "")}" placeholder="https://…/latest.json" style="direction:ltr" /></div>
       <div class="tiny muted">${esc(t("updateSourceHint"))}</div>
       <div class="field" style="margin-top:10px"><label>${esc(t("githubRepo"))}</label>
-        <input type="text" id="githubRepo" value="${esc(s.githubRepo || "ramadanfadel/VEXORA")}" placeholder="ramadanfadel/VEXORA" style="direction:ltr" /></div>
+        <input type="text" id="githubRepo" value="${esc(s.githubRepo || "ramadanfadel/VEXORA-1.4.0-Clean")}" placeholder="ramadanfadel/VEXORA-1.4.0-Clean" style="direction:ltr" /></div>
       <div class="tiny muted">${esc(t("githubRepoHint"))}</div>
       <div class="tiny muted" style="margin-top:4px">${svg("shield", 13)} ${esc(t("shaVerified"))}</div>
       <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">

@@ -129,12 +129,21 @@ pub fn list() -> Vec<Program> {
             seen.push(dedupe);
             // Extract install location from registry
             let location: String = k.get_value("InstallLocation").unwrap_or_default();
-            // Determine install type from registry properties (placeholder)
-            let install_type = detect_install_type();
-            // Measure actual program size using InstallLocation
+            let uninstall_string: String = k.get_value("UninstallString").unwrap_or_default();
+            let quiet_uninstall: String = k.get_value("QuietUninstallString").unwrap_or_default();
+            let display_icon: String = k.get_value("DisplayIcon").unwrap_or_default();
+            let publisher: String = k.get_value("Publisher").unwrap_or_default();
+            let has_package = k.get_value::<String, _>("PackageFullName").is_ok();
+            let install_type = detect_install_type(
+                &full,
+                &uninstall_string,
+                &quiet_uninstall,
+                &location,
+                &display_icon,
+                has_package,
+            );
             let actual_size = measure_actual_size(&location);
-            // Determine protection level
-            let protection_level = detect_protection_level(&name);
+            let protection_level = detect_protection_level(&name, &publisher, &full);
             // Determine install source from hive
             let install_source = detect_install_source(hive);
 
@@ -142,18 +151,18 @@ pub fn list() -> Vec<Program> {
                 key: full,
                 name,
                 version,
-                publisher: k.get_value("Publisher").unwrap_or_default(),
+                publisher,
                 install_date: k.get_value("InstallDate").unwrap_or_default(),
                 size_kb: k
                     .get_value::<u32, _>("EstimatedSize")
                     .map(|v| v as u64)
                     .unwrap_or(0),
                 actual_size_kb: actual_size,
-                uninstall: k.get_value("UninstallString").unwrap_or_default(),
-                quiet_uninstall: k.get_value("QuietUninstallString").unwrap_or_default(),
+                uninstall: uninstall_string,
+                quiet_uninstall,
                 location,
                 hive: hive.to_string(),
-                display_icon: k.get_value("DisplayIcon").unwrap_or_default(),
+                display_icon,
                 install_type,
                 protection_level,
                 install_source,
@@ -600,19 +609,61 @@ pub fn remove_entry(program: &Program) -> Result<(), String> {
     }
 }
 
-/// Determine the installation type from registry properties.
-/// (Placeholder: default to Win32; a real implementation would examine
-/// key values such as "ParentKeyName", "DisplayIcon", etc.)
-fn detect_install_type() -> InstallType {
-    // Placeholder implementation: default to Win32.
-    InstallType::Win32
+/// Determine installation type from real registry evidence: PackageFullName /
+/// WindowsApps (Store), msiexec / Installer paths (MSI), a location with no
+/// uninstaller (Portable), a normal uninstall string (Win32), else Unknown.
+fn detect_install_type(
+    key_path: &str,
+    uninstall: &str,
+    quiet: &str,
+    location: &str,
+    display_icon: &str,
+    has_package_fullname: bool,
+) -> InstallType {
+    let u = uninstall.to_lowercase();
+    let l = location.to_lowercase();
+    let icon = display_icon.to_lowercase();
+    let key = key_path.to_lowercase();
+    if has_package_fullname
+        || key.contains("windowsapps")
+        || l.contains("windowsapps")
+        || u.contains("windowsapps")
+    {
+        return InstallType::Store;
+    }
+    if u.contains("msiexec") || key.contains("\\installer\\") || icon.contains("\\windows\\installer\\") {
+        return InstallType::Msi;
+    }
+    if !location.trim().is_empty() && u.trim().is_empty() && quiet.trim().is_empty() {
+        return InstallType::Portable;
+    }
+    if !u.trim().is_empty() {
+        return InstallType::Win32;
+    }
+    InstallType::Unknown
 }
 
-/// Determine the protection level of a program based on its name.
-fn detect_protection_level(_name: &str) -> ProtectionLevel {
-    // Placeholder implementation: return Safe for most programs.
-    // A real implementation would check against sensitive vendor names,
-    // system-critical applications, etc.
+/// Heuristic safety rating based on names/publishers known to be risky to
+/// remove: security suites, drivers and core system/cloud-sync components.
+fn detect_protection_level(name: &str, publisher: &str, key_path: &str) -> ProtectionLevel {
+    let text = format!("{name} {publisher} {key_path}").to_lowercase();
+    const SENSITIVE: &[&str] = &[
+        "microsoft", "windows defender", "antivirus", "kaspersky", "bitdefender",
+        "avast", "avg", "norton", "mcafee", "eset", "sophos", "trend micro",
+        "crowdstrike", "sentinelone", "firewall", "security essentials",
+    ];
+    const REVIEW: &[&str] = &[
+        "driver", "nvidia", "geforce", "amd", "intel", "realtek", "qualcomm",
+        "onedrive", "dropbox", "google drive", "icloud", "steam", "office",
+        "visual studio", "sql server", "redistributable", ".net", "directx",
+        "edge", "chrome", "firefox", "runtime", "python", "java",
+    ];
+    if SENSITIVE.iter().any(|t| text.contains(t)) {
+        return ProtectionLevel::Sensitive;
+    }
+    if REVIEW.iter().any(|t| text.contains(t)) {
+        return ProtectionLevel::Review;
+    }
     ProtectionLevel::Safe
 }
 
@@ -626,25 +677,24 @@ fn detect_install_source(hive: &str) -> InstallSource {
     }
 }
 
-/// Attempt to measure the actual program size by reading InstallLocation
-/// and computing the directory size. Returns None if the location is
-/// unavailable or cannot be measured (placeholder for now).
-fn measure_actual_size(_location: &str) -> Option<u64> {
-    // Placeholder implementation: return None to indicate "unknown size".
-    // A full implementation would:
-    // 1. Parse the InstallLocation path
-    // 2. Recursively sum file sizes if the directory exists
-    // 3. Handle symlinks, Hard Links, and protected files
-    // 4. Subtract shared/system components
-    // For now, if location is non-empty, attempt basic dir size check
-    if _location.is_empty() {
+/// Measure the real on-disk size of an installed program from its
+/// `InstallLocation`. Returns `None` when the location is missing, is a
+/// reparse point, or points outside a safe cleaning area. `dir_size` does not
+/// follow directory symlinks/junctions, so no unexpected drive is traversed.
+fn measure_actual_size(location: &str) -> Option<u64> {
+    let text = location.trim();
+    if text.is_empty() {
         return None;
     }
-    // Basic check: attempt to compute directory size if path exists
-    // (This is a simplified placeholder; real implementation would use
-    //  walkdir or similar to recursively sum file sizes)
-    let _ = _location; // suppress unused variable
-    None
+    let path = std::path::Path::new(text);
+    if !path.is_dir() || safety::is_reparse_point(path) || !safety::clean_path_allowed(path) {
+        return None;
+    }
+    let bytes = dir_size(path);
+    if bytes == 0 {
+        return None;
+    }
+    Some(bytes / 1024)
 }
 
 pub fn tokens(name: &str) -> Vec<String> {
@@ -1333,6 +1383,63 @@ fn find_exe_in_dir(dir: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn detects_install_type_from_evidence() {
+        let key = r"HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\App";
+        assert_eq!(
+            detect_install_type(key, "msiexec /x {GUID}", "", "", "", false),
+            InstallType::Msi
+        );
+        assert_eq!(
+            detect_install_type(key, "", "", r"C:\Program Files\Tool", "", true),
+            InstallType::Store
+        );
+        assert_eq!(
+            detect_install_type(
+                r"HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Uninstall\App",
+                "",
+                "",
+                r"C:\Tools\PortableApp",
+                "",
+                false
+            ),
+            InstallType::Portable
+        );
+        assert_eq!(
+            detect_install_type(key, r"C:\App\unins000.exe", "", "", "", false),
+            InstallType::Win32
+        );
+        assert_eq!(detect_install_type(key, "", "", "", "", false), InstallType::Unknown);
+    }
+
+    #[test]
+    fn rates_protection() {
+        assert_eq!(
+            detect_protection_level("Microsoft Defender", "", "HKLM\\...\\Defender"),
+            ProtectionLevel::Sensitive
+        );
+        assert_eq!(
+            detect_protection_level("NVIDIA Driver", "", "HKLM\\...\\NVIDIA"),
+            ProtectionLevel::Review
+        );
+        assert_eq!(
+            detect_protection_level("My Notepad", "ACME", "HKLM\\...\\Notepad"),
+            ProtectionLevel::Safe
+        );
+    }
+
+    #[test]
+    fn measures_local_folder_size() {
+        let dir = std::env::temp_dir().join(format!("vexora_uninstall_size_{}", std::process::id()));
+        let _ = std::fs::create_dir_all(&dir);
+        let f = dir.join("payload.bin");
+        std::fs::write(&f, vec![0u8; 4096]).unwrap();
+        let kb = measure_actual_size(&dir.to_string_lossy());
+        assert!(kb.is_some());
+        assert!(kb.unwrap() >= 4);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 
     #[test]
     fn splits_quoted_command_line() {

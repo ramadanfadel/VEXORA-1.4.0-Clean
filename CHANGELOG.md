@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.4.1
+- Uninstaller now reports real install type (Win32 / MSI / Store / Portable),
+  measured on-disk size from `InstallLocation` (no junctions followed), and a
+  safety rating (safe / review / sensitive).
+- Updater source switched to `ramadanfadel/VEXORA-1.4.0-Clean` with automatic
+  migration from the old repository. 47 unit tests pass.
+
 ## 1.4.0 — Appearance Studio
 - **Phase 1**: appearance settings (`appearanceLayout`, `appearanceAccent`, `appearanceMode`,
   `appearanceGlow`, `appearanceAnimation`, `appearanceMigrated`), live preview, Apply/Reset,

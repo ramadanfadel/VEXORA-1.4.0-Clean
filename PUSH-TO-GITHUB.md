@@ -9,7 +9,7 @@ git init
 git add .
 git commit -m "VEXORA 1.4.0 — clean source release"
 git branch -M main
-git remote add origin https://github.com/ramadanfadel/VEXORA.git
+git remote add origin https://github.com/ramadanfadel/VEXORA-1.4.0-Clean.git
 git push -u origin main
 ```
 
@@ -21,9 +21,9 @@ git push -u origin main
 `New repository` → `Upload files` → اسحب محتوى الـ ZIP بعد فكّه.
 
 ## بعد الرفع
-1. انشر Release جديد بالرقم `VEXORA_1.4.1_x64` (أعلى من 1.4.0) وارفع المثبّت الموقّع.
+1. انشر Release جديد بالرقم `v1.4.2` (أعلى من 1.4.1) وارفع المثبّت الموقّع.
 2. تأكد أن الـ asset يحتوي على `sha256:` digest (GitHub يولّده تلقائياً).
-3. افتح VEXORA 1.4.0 → سيظهر إشعار التحديث والزر الصغير بجانب رقم الإصدار.
+3. افتح VEXORA 1.4.1 → سيظهر إشعار التحديث والزر الصغير بجانب رقم الإصدار.
 
 ## توقيع المثبّت من هذه النسخة
 أضف تحت `bundle` في `src-tauri/tauri.conf.json`:
