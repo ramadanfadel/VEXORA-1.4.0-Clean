@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.1.0 — Stability & Security
+- Removed 11 stale cargo-audit exceptions; no `ignore` flags remain in CI.
+- Added an isolated fixture test for leftover scanning; zero ignored tests (67 total).
+- Documented 4 visible cargo-audit warnings and measured baseline resource usage.
+- Preserved v2.0.0 tag unchanged. See VEXORA-2.1.0-Stability-Report.md.
+
 ## 2.0.0
 - Network Manager: read-only adapter/IP/DNS overview (no configuration changes).
 - Smart File Transfer: local copy verified with BLAKE3, overwrite only when explicit.

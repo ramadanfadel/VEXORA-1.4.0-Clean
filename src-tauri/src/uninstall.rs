@@ -1191,6 +1191,32 @@ fn broken_registry_keys() -> std::collections::HashSet<String> {
 /// Nothing is deleted — the result is a review plan for the UI.
 pub fn leftover_scan() -> safety::CleanupPlan {
     let all = list();
+    let pf = std::env::var("ProgramFiles").unwrap_or_else(|_| r"C:\Program Files".into());
+    let pf86 = std::env::var("ProgramFiles(x86)").unwrap_or_else(|_| r"C:\Program Files (x86)".into());
+    let appdata = std::env::var("APPDATA").unwrap_or_default();
+    let roots = vec![
+        pf,
+        pf86,
+        util::program_data(),
+        util::local_appdata(),
+        format!(r"{appdata}"),
+    ];
+    leftover_scan_in(
+        roots,
+        all,
+        broken_registry_keys().into_iter().collect(),
+        dead_shortcuts(),
+    )
+}
+
+/// Isolated core: all external inputs are supplied by the caller so tests can
+/// use a temporary directory instead of touching real user data.
+fn leftover_scan_in(
+    roots_dirs: Vec<String>,
+    all: Vec<Program>,
+    broken_keys: Vec<String>,
+    shortcuts: Vec<(String, String)>,
+) -> safety::CleanupPlan {
     let other_locations: Vec<String> = all
         .iter()
         .map(|p| p.location.clone())
@@ -1205,7 +1231,7 @@ pub fn leftover_scan() -> safety::CleanupPlan {
     let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
 
     // --- 1) broken uninstall registry entries ---------------------------
-    for full in broken_registry_keys() {
+    for full in broken_keys {
         if seen.insert(full.clone()) {
             items.push(safety::CleanupItem {
                 kind: "registry".into(),
@@ -1218,16 +1244,6 @@ pub fn leftover_scan() -> safety::CleanupPlan {
     }
 
     // --- 2) orphan folders carrying an uninstaller ----------------------
-    let pf = std::env::var("ProgramFiles").unwrap_or_else(|_| r"C:\Program Files".into());
-    let pf86 = std::env::var("ProgramFiles(x86)").unwrap_or_else(|_| r"C:\Program Files (x86)".into());
-    let appdata = std::env::var("APPDATA").unwrap_or_default();
-    let roots_dirs = vec![
-        pf,
-        pf86,
-        util::program_data(),
-        util::local_appdata(),
-        format!(r"{appdata}"),
-    ];
     let mut dir_candidates: Vec<std::path::PathBuf> = Vec::new();
     let uninstallers = active_uninstallers(&all);
     for root in roots_dirs {
@@ -1312,7 +1328,7 @@ pub fn leftover_scan() -> safety::CleanupPlan {
     }
 
     // --- 3) dead Start Menu shortcuts -----------------------------------
-    for (lnk, target) in dead_shortcuts() {
+    for (lnk, target) in shortcuts {
         if seen.insert(lnk.to_lowercase()) {
             items.push(safety::CleanupItem {
                 kind: "shortcut".into(),
@@ -1628,28 +1644,47 @@ mod tests {
         println!("parsed {checked} uninstall commands of {} programs", progs.len());
     }
 
-    /// Real-machine smoke test of the automatic leftover scan (slow: runs
-    /// PowerShell for the shortcut check) — run explicitly with
-    /// `cargo test --lib leftover_scan_smoke -- --ignored --nocapture`.
+    /// Isolated fixture: no registry reads, no real user files, no PowerShell.
     #[test]
-    #[ignore]
-    fn leftover_scan_smoke() {
-        let plan = leftover_scan();
-        let mut by_reason: std::collections::BTreeMap<String, usize> = Default::default();
-        for i in &plan.items {
-            *by_reason
-                .entry(i.reason.split(':').next().unwrap_or("?").to_string())
-                .or_default() += 1;
-        }
-        println!(
-            "leftover_scan: {} items ({} safe, {} blocked), reasons: {:?}",
-            plan.items.len(),
-            plan.safe_count,
-            plan.blocked_count,
-            by_reason
+    fn leftover_scan_uses_isolated_fixture() {
+        let base = std::env::temp_dir().join(format!("vexora_leftover_{}", std::process::id()));
+        let orphan = base.join("OrphanApp");
+        let _ = std::fs::create_dir_all(&orphan);
+        std::fs::write(orphan.join("unins000.exe"), b"fake").unwrap();
+        std::fs::write(orphan.join("payload.dat"), vec![1u8; 256]).unwrap();
+
+        let installed = Program {
+            key: "HKLM\\Software\\Uninstall\\Installed".into(),
+            name: "CompletelyDifferentApp".into(),
+            version: "1.0".into(),
+            publisher: "Vendor".into(),
+            install_date: "20260101".into(),
+            size_kb: 1,
+            uninstall: String::new(),
+            quiet_uninstall: String::new(),
+            location: base.join("OtherLocation").to_string_lossy().to_string(),
+            hive: "machine".into(),
+            display_icon: String::new(),
+            install_type: InstallType::Win32,
+            actual_size_kb: None,
+            protection_level: ProtectionLevel::Safe,
+            install_source: InstallSource::MachineUninstallKey,
+        };
+        let plan = leftover_scan_in(
+            vec![base.to_string_lossy().to_string()],
+            vec![installed],
+            Vec::new(),
+            Vec::new(),
         );
-        for i in plan.items.iter().take(20) {
-            println!("  [{}] {} — {}", if i.safe { "safe" } else { "blocked" }, i.reason, i.path);
-        }
+        assert!(
+            plan.items.iter().any(|i| {
+                i.kind == "directory" && i.path.contains("OrphanApp") && i.safe
+            }),
+            "orphan folder with an uninstaller must be reported as safe"
+        );
+        assert_eq!(plan.safe_count, plan.items.iter().filter(|i| i.safe).count());
+        assert_eq!(plan.blocked_count, plan.items.iter().filter(|i| !i.safe).count());
+        assert!(plan.items.iter().all(|i| i.path.starts_with(base.to_string_lossy().as_ref())));
+        let _ = std::fs::remove_dir_all(&base);
     }
 }
