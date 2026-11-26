@@ -1,6 +1,6 @@
 [package]
 name = "vexora"
-version = "2.1.0"
+version = "2.2.0"
 description = "VEXORA - Clean Smarter. Run Faster. PC cleaner, privacy and optimizer"
 authors = ["Ramadan Fadel Mostafa (Abu Maryam)"]
 license = "MIT"

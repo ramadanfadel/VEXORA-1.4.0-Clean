@@ -875,10 +875,39 @@ async fn winget_install(id: String) -> Result<(bool, String), String> {
 
 // ------------------------------------------------------------------ hardware monitor
 #[tauri::command]
-async fn hwmon_status() -> Result<hwmon::HardwareInfo, String> {
-    tauri::async_runtime::spawn_blocking(hwmon::read)
+async fn hwmon_status(
+    state: State<'_, AppState>,
+    app: AppHandle,
+) -> Result<hwmon::HardwareInfo, String> {
+    let s = state.settings.lock().unwrap().clone();
+    let info = tauri::async_runtime::spawn_blocking(hwmon::read)
         .await
-        .map_err(|e| e.to_string())
+        .map_err(|e| e.to_string())?;
+    let mem_pct = {
+        let h = sysinfo::health();
+        if h.mem_total > 0 {
+            Some(100.0 * h.mem_used.min(h.mem_total) as f64 / h.mem_total as f64)
+        } else {
+            None
+        }
+    };
+    hwmon::record(&info, mem_pct);
+    if s.hw_alerts_enabled {
+        let alerts = hwmon::evaluate_alerts(
+            &info,
+            s.hw_cpu_temp_max as f64,
+            s.hw_gpu_temp_max as f64,
+        );
+        if !alerts.is_empty() {
+            let _ = app.emit("hw:alert", alerts);
+        }
+    }
+    Ok(info)
+}
+
+#[tauri::command]
+fn hw_history() -> Vec<hwmon::HwSample> {
+    hwmon::history()
 }
 
 // ------------------------------------------------------------------ battery
@@ -2024,6 +2053,7 @@ pub fn run() {
             check_update,
             install_update,
             hwmon_status,
+            hw_history,
             open_github_page,
             quit_app,
             show_main_window,

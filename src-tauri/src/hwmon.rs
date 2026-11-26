@@ -19,6 +19,8 @@ pub struct HwSensor {
     pub metric: String,
     pub value: String,
     pub available: bool,
+    /// Raw numeric reading, when the sensor exists (None => N/A).
+    pub raw: Option<f64>,
 }
 
 #[derive(Serialize, Clone, Debug)]
@@ -45,6 +47,7 @@ fn unavailable() -> HardwareInfo {
             metric: metric.into(),
             value: "N/A".into(),
             available: false,
+            raw: None,
         });
     }
     HardwareInfo {
@@ -116,6 +119,7 @@ fn parse_hardware(text: &str) -> HardwareInfo {
                 metric,
                 value,
                 available,
+                raw,
             });
         }
     }
@@ -212,6 +216,88 @@ pub fn read() -> HardwareInfo {
     parse_hardware(&text)
 }
 
+/// One point of the in-memory performance history. Nothing is written to disk.
+#[derive(Serialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct HwSample {
+    pub ts: u64,
+    pub cpu_temp: Option<f64>,
+    pub gpu_temp: Option<f64>,
+    pub cpu_load: Option<f64>,
+    pub mem_pct: Option<f64>,
+}
+
+const HISTORY_LIMIT: usize = 120;
+static HISTORY: std::sync::Mutex<std::collections::VecDeque<HwSample>> =
+    std::sync::Mutex::new(std::collections::VecDeque::new());
+
+fn reading(info: &HardwareInfo, label: &str, metric: &str) -> Option<f64> {
+    info.sensors
+        .iter()
+        .find(|s| s.label == label && s.metric == metric)
+        .and_then(|s| s.raw)
+}
+
+/// Append a sample only when the user opens/refreshes Hardware Center.
+/// No background polling is started by this module.
+pub fn record(info: &HardwareInfo, mem_pct: Option<f64>) {
+    let sample = HwSample {
+        ts: crate::util::now_unix(),
+        cpu_temp: reading(info, "CPU", "Temperature")
+            .or_else(|| reading(info, "System", "Temperature")),
+        gpu_temp: reading(info, "GPU", "Temperature"),
+        cpu_load: reading(info, "CPU", "Load"),
+        mem_pct,
+    };
+    if let Ok(mut h) = HISTORY.lock() {
+        h.push_back(sample);
+        while h.len() > HISTORY_LIMIT {
+            h.pop_front();
+        }
+    }
+}
+
+pub fn history() -> Vec<HwSample> {
+    HISTORY
+        .lock()
+        .map(|h| h.iter().cloned().collect())
+        .unwrap_or_default()
+}
+
+#[derive(Serialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct HwAlert {
+    pub label: String,
+    pub value: f64,
+    pub limit: f64,
+}
+
+/// Thresholds are checked only from real readings; missing sensors produce no alert.
+pub fn evaluate_alerts(info: &HardwareInfo, cpu_max: f64, gpu_max: f64) -> Vec<HwAlert> {
+    let mut out = Vec::new();
+    if let Some(v) = reading(info, "CPU", "Temperature")
+        .or_else(|| reading(info, "System", "Temperature"))
+    {
+        if v >= cpu_max {
+            out.push(HwAlert {
+                label: "CPU".into(),
+                value: v,
+                limit: cpu_max,
+            });
+        }
+    }
+    if let Some(v) = reading(info, "GPU", "Temperature") {
+        if v >= gpu_max {
+            out.push(HwAlert {
+                label: "GPU".into(),
+                value: v,
+                limit: gpu_max,
+            });
+        }
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -249,6 +335,31 @@ mod tests {
         assert_eq!(info.sensors[3].value, "54.0 °C");
         assert!(info.sensors[3].available);
         assert!(!info.sensors[4].available);
+    }
+
+    #[test]
+    fn alerts_use_only_real_readings() {
+        let mut info = unavailable();
+        if let Some(cpu) = info
+            .sensors
+            .iter_mut()
+            .find(|s| s.label == "System" && s.metric == "Temperature")
+        {
+            cpu.raw = Some(91.0);
+        }
+        let alerts = evaluate_alerts(&info, 85.0, 85.0);
+        assert_eq!(alerts.len(), 1);
+        assert_eq!(alerts[0].label, "CPU");
+        assert!(evaluate_alerts(&unavailable(), 85.0, 85.0).is_empty());
+    }
+
+    #[test]
+    fn history_is_bounded() {
+        let info = unavailable();
+        for _ in 0..HISTORY_LIMIT + 25 {
+            record(&info, Some(50.0));
+        }
+        assert_eq!(history().len(), HISTORY_LIMIT);
     }
 
     #[test]

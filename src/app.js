@@ -245,6 +245,13 @@ const DICT = {
     typedConfirmHint: "اكتب {word} للتأكيد",
     typedConfirmMismatch: "الكتابة غير مطابقة — لم يتم تنفيذ أي شيء",
     ctxAdminDenied: "فشل التغيير — يتطلب صلاحيات Administrator. شغّل VEXORA كمسؤول.",
+    hwAlerts: "تنبيهات حرارة العتاد",
+    hwCpuMax: "حد المعالج (°C)",
+    hwGpuMax: "حد الكرت (°C)",
+    hwHistory: "السجل الأخير",
+    hwSmart: "صحة الأقراص (SMART)",
+    hwRam: "الذاكرة",
+    hwAlertToast: "تنبيه حرارة",
     network: "الشبكة (قراءة فقط)",
     toolNetworkDesc: "عرض المحولات وعناوين IP وDNS بدون أي تغيير في الإعدادات.",
     transfer: "نقل الملفات",
@@ -857,7 +864,14 @@ const DICT = {
     typedConfirmHint: "Type {word} to confirm",
     typedConfirmMismatch: "Text did not match — nothing was changed",
     ctxAdminDenied: "Change failed — Administrator rights are required. Run VEXORA as administrator.",
-    network: "Network (read-only)",
+    hwAlerts: "Hardware temperature alerts",
+  hwCpuMax: "CPU limit (°C)",
+  hwGpuMax: "GPU limit (°C)",
+  hwHistory: "Recent history",
+  hwSmart: "Disk health (SMART)",
+  hwRam: "Memory",
+  hwAlertToast: "Temperature alert",
+  network: "Network (read-only)",
   toolNetworkDesc: "View adapters, IPs and DNS without changing anything.",
   transfer: "File Transfer",
   toolTransferDesc: "Local copy with BLAKE3 verification; overwrite only when explicit.",
@@ -3723,8 +3737,18 @@ async function renderTools() {
       state.tools.hwBattery = null;
       call("battery_status", {}).then((b) => { state.tools.hwBattery = b; if (state.page === "tools" && state.tools.tab === "hwcenter") go("tools"); }).catch(() => {});
     }
+    if (state.tools.hwHistory === undefined) {
+      state.tools.hwHistory = null;
+      call("hw_history", {}).then((v) => { state.tools.hwHistory = v; if (state.page === "tools" && state.tools.tab === "hwcenter") go("tools"); }).catch(() => {});
+    }
+    if (state.tools.hwDisks === undefined) {
+      state.tools.hwDisks = null;
+      call("disk_health", {}).then((v) => { state.tools.hwDisks = v; if (state.page === "tools" && state.tools.tab === "hwcenter") go("tools"); }).catch(() => {});
+    }
     const h = state.tools.hwmon;
     const b = state.tools.hwBattery;
+    const hist = state.tools.hwHistory || [];
+    const disks = state.tools.hwDisks || [];
     body = `<div class="card flat">
       <div class="field-row" style="margin-bottom:10px">
         <button class="btn small primary" id="hwcRefresh">${svg("refresh", 14)}${esc(t("hwmonRefresh"))}</button>
@@ -3738,6 +3762,18 @@ async function renderTools() {
       <div class="tiny muted">${b && b.present
         ? `${b.chargePct}% · ${esc(t("batteryStatus" + (b.charging ? "Charging" : b.discharging ? "Discharging" : "AC")))} · ${esc(t("batteryHealth"))} ${b.healthPct}%`
         : esc(t("batteryNoBattery"))}</div>
+      <div class="vex-sec-label">${esc(t("hwSmart"))}</div>
+      ${disks.length
+        ? `<div class="tiny muted">${disks.map((d) => `${esc(d.name)}: ${esc(d.health || "N/A")} · ${esc(d.media || "")}`).join("<br/>")}</div>`
+        : `<div class="tiny muted">N/A</div>`}
+      <div class="vex-sec-label">${esc(t("hwHistory"))}</div>
+      ${hist.length
+        ? `<div class="vex-history">${hist.slice(-40).map((p) => {
+            const t = p.cpuTemp != null ? p.cpuTemp : p.gpuTemp;
+            const pct = t != null ? Math.min(100, Math.max(0, (t / 110) * 100)) : 0;
+            return `<i style="height:${pct}%" title="${t != null ? t.toFixed(1) : "N/A"}°C"></i>`;
+          }).join("")}</div>`
+        : `<div class="tiny muted">N/A</div>`}
     </div>`;
   } else if (tab === "startanalyzer") {
     if (state.tools.startItems === undefined) {
@@ -4419,6 +4455,8 @@ async function renderTools() {
       try {
         state.tools.hwmon = await call("hwmon_status", {});
         state.tools.hwBattery = await call("battery_status", {});
+        state.tools.hwHistory = await call("hw_history", {});
+        state.tools.hwDisks = await call("disk_health", {});
         go("tools");
       } catch (e) { toast(String(e), "error"); }
     };
@@ -4937,6 +4975,12 @@ async function renderSettings() {
             <option value="dark" ${s.theme === "dark" ? "selected" : ""}>${esc(t("dark"))}</option>
             <option value="light" ${s.theme === "light" ? "selected" : ""}>${esc(t("light"))}</option>
           </select></div>
+        <div class="setting"><div class="txt"><div class="t">${esc(t("hwAlerts"))}</div><div class="s">${esc(state.lang === "ar" ? "تُقيَّم عند تحديث مركز العتاد فقط" : "Evaluated on Hardware Center refresh only")}</div></div>
+          <div class="toggle ${s.hwAlertsEnabled ? "on" : ""}" data-set="hwAlertsEnabled"></div></div>
+        <div class="setting"><div class="txt"><div class="t">${esc(t("hwCpuMax"))}</div></div>
+          <input type="number" id="setHwCpu" min="40" max="110" value="${s.hwCpuTempMax || 85}" style="width:80px;padding:8px;border-radius:9px;border:1px solid var(--line);background:var(--card-2);color:var(--text)" /></div>
+        <div class="setting"><div class="txt"><div class="t">${esc(t("hwGpuMax"))}</div></div>
+          <input type="number" id="setHwGpu" min="40" max="110" value="${s.hwGpuTempMax || 85}" style="width:80px;padding:8px;border-radius:9px;border:1px solid var(--line);background:var(--card-2);color:var(--text)" /></div>
         <div class="setting"><div class="txt"><div class="t">${esc(t("previewFirst"))}</div></div>
           <div class="toggle ${s.previewFirst ? "on" : ""}" data-set="previewFirst"></div></div>
         <div class="setting"><div class="txt"><div class="t">${esc(t("confirmBeforeClean"))}</div></div>
@@ -5255,6 +5299,8 @@ async function renderSettings() {
   $("#wHide").onclick = () => invoke("widget_hide").catch(() => {});
   $("#wShow").onclick = () => invoke("widget_set_visible", { visible: true }).catch(() => {});
   $("#setPasses").onchange = (e) => persist({ shredPasses: Math.max(1, Number(e.target.value) || 1) });
+  $("#setHwCpu").onchange = (e) => persist({ hwCpuTempMax: Math.min(110, Math.max(40, Number(e.target.value) || 85)) });
+  $("#setHwGpu").onchange = (e) => persist({ hwGpuTempMax: Math.min(110, Math.max(40, Number(e.target.value) || 85)) });
   $("#setSched").onclick = async () => {
     const enabled = !state.settings.schedule.enabled;
     try {
@@ -5571,6 +5617,11 @@ async function boot() {
     await loadCatalog();
     await go(state.page);
   };
+
+  await listen("hw:alert", (ev) => {
+    const a = (ev.payload || [])[0];
+    if (a) toast(`${t("hwAlertToast")}: ${a.label} ${a.value}°C ≥ ${a.limit}°C`, "warn");
+  });
 
   // New GitHub release found shortly after startup.
   await listen("update:available", (ev) => {

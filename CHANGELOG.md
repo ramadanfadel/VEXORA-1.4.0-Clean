@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.2.0
+- Hardware Center: in-memory performance history (120 samples), SMART disk view
+  and memory summary, all read-only.
+- Temperature alerts are opt-in and evaluated only on manual refresh; no
+  continuous monitoring was added.
+- 69 unit tests + UI smoke test.
+
 ## 2.1.0 — Stability & Security
 - Removed 11 stale cargo-audit exceptions; no `ignore` flags remain in CI.
 - Added an isolated fixture test for leftover scanning; zero ignored tests (67 total).
