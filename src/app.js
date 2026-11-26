@@ -245,6 +245,23 @@ const DICT = {
     typedConfirmHint: "اكتب {word} للتأكيد",
     typedConfirmMismatch: "الكتابة غير مطابقة — لم يتم تنفيذ أي شيء",
     ctxAdminDenied: "فشل التغيير — يتطلب صلاحيات Administrator. شغّل VEXORA كمسؤول.",
+    security: "مركز الحماية",
+    toolSecurityDesc: "حالة Defender والجدار الناري والسجل المحلي والحجر الصحي — قراءة فقط.",
+    secDefender: "Microsoft Defender",
+    secFirewall: "جدار الحماية",
+    secHistory: "سجل الأمان المحلي",
+    secQuarantine: "الحجر الصحي",
+    secRescue: "نقاط الاستعادة",
+    secUsb: "درع USB",
+    secWeb: "درع الويب",
+    secPlanned: "مخطط له في الإصدار القادم",
+    secRealTime: "الحماية الفورية",
+    secAntivirus: "مضاد الفيروسات",
+    secTamper: "حماية العبث",
+    secSignature: "آخر تحديث للتوقيعات",
+    secOn: "مفعّل",
+    secOff: "معطّل",
+    secNotAvailable: "غير متاح",
     hwAlerts: "تنبيهات حرارة العتاد",
     hwCpuMax: "حد المعالج (°C)",
     hwGpuMax: "حد الكرت (°C)",
@@ -864,7 +881,24 @@ const DICT = {
     typedConfirmHint: "Type {word} to confirm",
     typedConfirmMismatch: "Text did not match — nothing was changed",
     ctxAdminDenied: "Change failed — Administrator rights are required. Run VEXORA as administrator.",
-    hwAlerts: "Hardware temperature alerts",
+    security: "Security Center",
+  toolSecurityDesc: "Defender, firewall, local history and quarantine — read only.",
+  secDefender: "Microsoft Defender",
+  secFirewall: "Firewall",
+  secHistory: "Local security log",
+  secQuarantine: "Quarantine",
+  secRescue: "Restore points",
+  secUsb: "USB Shield",
+  secWeb: "Web Shield",
+  secPlanned: "Planned for the next release",
+  secRealTime: "Real-time protection",
+  secAntivirus: "Antivirus",
+  secTamper: "Tamper protection",
+  secSignature: "Signature last updated",
+  secOn: "On",
+  secOff: "Off",
+  secNotAvailable: "Unavailable",
+  hwAlerts: "Hardware temperature alerts",
   hwCpuMax: "CPU limit (°C)",
   hwGpuMax: "GPU limit (°C)",
   hwHistory: "Recent history",
@@ -3234,6 +3268,7 @@ async function renderTools() {
     ["junk", t("junkFiles"), "tools"],
     ["services", t("services"), "settings"],
     ["monitor", t("monitor"), "search"],
+    ["security", t("security"), "shield"],
     ["network", t("network"), "apps"],
     ["transfer", t("transfer"), "file"],
     ["automation", t("automation"), "clock"],
@@ -3615,6 +3650,48 @@ async function renderTools() {
         ? `<div class="filelist" style="max-height:360px;overflow:auto">${items.map((it, i) => `<label class="f" style="gap:8px;cursor:pointer"><input type="checkbox" data-adobe="${i}" checked style="accent-color:var(--accent)" /><span class="grow ellipsis tiny" style="direction:ltr;text-align:start">${esc(it.path)}</span><span class="tiny muted">${esc(it.kind)}</span><span>${fmtBytes(it.size)}</span></label>`).join("")}</div>
            <button class="btn danger" id="adobeClean" style="margin-top:10px">${esc(t("adobeClean"))}</button>`
         : items ? `<div class="tiny muted">${esc(t("nothingFound"))}</div>` : `<div class="tiny muted">${esc(t("scanning"))}</div>`}
+    </div>`;
+  } else if (tab === "security") {
+    const load = (key, cmd, args) => {
+      if (state.tools[key] !== undefined) return;
+      state.tools[key] = null;
+      call(cmd, args || {}).then((v) => {
+        state.tools[key] = v;
+        if (state.page === "tools" && state.tools.tab === "security") go("tools");
+      }).catch(() => {});
+    };
+    load("secDefender", "security_defender_status");
+    load("secFirewall", "security_firewall_status");
+    load("secHistory", "security_history", { limit: 25 });
+    load("secQuarantine", "rescue_quarantine_list");
+    load("secPoints", "restore_points");
+    const d = state.tools.secDefender;
+    const fw = state.tools.secFirewall || [];
+    const hist = state.tools.secHistory || [];
+    const q = state.tools.secQuarantine || [];
+    const pts = state.tools.secPoints || [];
+    const yn = (v) => esc(v ? t("secOn") : t("secOff"));
+    body = `<div class="card flat">
+      <div class="field-row" style="margin-bottom:10px">
+        <button class="btn small primary" id="secRefresh">${svg("refresh", 14)}${esc(t("networkRefresh"))}</button>
+      </div>
+      <div class="vex-sec-label">${esc(t("secDefender"))}</div>
+      ${d && d.available
+        ? `<div class="tiny muted">${esc(t("secRealTime"))}: ${yn(d.realTime)}<br/>
+            ${esc(t("secAntivirus"))}: ${yn(d.antivirus)}<br/>
+            ${esc(t("secTamper"))}: ${yn(d.tamperProtection)}<br/>
+            ${esc(t("secSignature"))}: ${esc(d.signatureUpdated || t("secNotAvailable"))}</div>`
+        : `<div class="tiny muted">${esc((d && d.error) || t("secNotAvailable"))}</div>`}
+      <div class="vex-sec-label">${esc(t("secFirewall"))}</div>
+      ${fw.length ? fw.map((p) => `<div class="tiny muted">${esc(p.name)}: ${yn(p.enabled)}</div>`).join("") : `<div class="tiny muted">${esc(t("secNotAvailable"))}</div>`}
+      <div class="vex-sec-label">${esc(t("secRescue"))}</div>
+      <div class="tiny muted">${pts.length}</div>
+      <div class="vex-sec-label">${esc(t("secQuarantine"))}</div>
+      <div class="tiny muted">${q.length}</div>
+      <div class="vex-sec-label">${esc(t("secHistory"))}</div>
+      <pre class="vex-reg-view" dir="ltr">${hist.length ? esc(hist.join("\n")) : "—"}</pre>
+      <div class="vex-sec-label">${esc(t("secUsb"))} / ${esc(t("secWeb"))}</div>
+      <div class="tiny muted">${esc(t("secPlanned"))} (2.4.0 / 2.5.0)</div>
     </div>`;
   } else if (tab === "network") {
     if (state.tools.netAdapters === undefined) {
@@ -4122,6 +4199,7 @@ async function renderTools() {
     ["junk", "tools", t("junkFiles"), t("toolJunkDesc")],
     ["services", "settings", t("services"), t("toolServicesDesc")],
     ["monitor", "search", t("monitor"), t("toolMonitorDesc")],
+    ["security", "shield", t("security"), t("toolSecurityDesc")],
     ["network", "apps", t("network"), t("toolNetworkDesc")],
     ["transfer", "file", t("transfer"), t("toolTransferDesc")],
     ["automation", "clock", t("automation"), t("toolAutomationDesc")],
@@ -4356,6 +4434,12 @@ async function renderTools() {
         state.tools.adobeItems = undefined;
         go("tools");
       };
+  }
+  if (tab === "security") {
+    if ($("#secRefresh")) $("#secRefresh").onclick = async () => {
+      for (const k of ["secDefender", "secFirewall", "secHistory", "secQuarantine", "secPoints"]) state.tools[k] = undefined;
+      go("tools");
+    };
   }
   if (tab === "network") {
     if ($("#netRefresh")) $("#netRefresh").onclick = async () => {

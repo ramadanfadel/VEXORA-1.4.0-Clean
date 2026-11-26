@@ -28,6 +28,7 @@ pub mod safety;
 pub mod scan;
 pub mod schedule;
 pub mod services;
+pub mod security;
 pub mod software_updater;
 pub mod settings;
 pub mod shredder;
@@ -273,6 +274,27 @@ async fn automation_run(state: State<'_, AppState>) -> Result<Vec<automation::Ou
 #[tauri::command]
 async fn hyper_dup_scan(roots: Vec<String>, min_size: u64) -> Result<tools::DupResult, String> {
     tauri::async_runtime::spawn_blocking(move || hyperscan::scan(&roots, min_size))
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn security_defender_status() -> Result<security::DefenderStatus, String> {
+    tauri::async_runtime::spawn_blocking(security::defender_status)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn security_firewall_status() -> Result<Vec<security::FirewallProfile>, String> {
+    tauri::async_runtime::spawn_blocking(security::firewall_status)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn security_history(limit: usize) -> Result<Vec<String>, String> {
+    tauri::async_runtime::spawn_blocking(move || security::history(limit))
         .await
         .map_err(|e| e.to_string())
 }
@@ -1945,6 +1967,9 @@ pub fn run() {
             automation_save,
             automation_run,
             network_status,
+            security_defender_status,
+            security_firewall_status,
+            security_history,
             transfer_copy,
             software_updates_scan,
             software_upgrade,

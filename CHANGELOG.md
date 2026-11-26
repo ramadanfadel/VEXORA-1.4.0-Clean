@@ -1,11 +1,13 @@
 # Changelog
 
+## 2.3.0
+- Security Center: read-only Defender/Firewall status, local security log,
+  restore points and quarantine. USB/Web Shield marked as planned for 2.4/2.5.
+- 70 unit tests + UI smoke test.
+
 ## 2.2.0
-- Hardware Center: in-memory performance history (120 samples), SMART disk view
-  and memory summary, all read-only.
-- Temperature alerts are opt-in and evaluated only on manual refresh; no
-  continuous monitoring was added.
-- 69 unit tests + UI smoke test.
+- Hardware Center: in-memory history (120 samples), SMART disk view, memory summary.
+- Temperature alerts opt-in and evaluated only on manual refresh.
 
 ## 2.1.0 — Stability & Security
 - Removed 11 stale cargo-audit exceptions; no `ignore` flags remain in CI.
