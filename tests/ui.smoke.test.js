@@ -103,6 +103,13 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   assert.strictEqual(window.document.body.dataset.vexLayout, "grid", "initial layout must be applied");
   assert.strictEqual(window.document.documentElement.dataset.vexMode, "dark");
 
+  // New 1.6.0 tool cards must exist when the Tools page is rendered.
+  window.document.querySelector('[data-nav="tools"]').click();
+  await wait(250);
+  for (const id of ["rescue", "regdiff", "tracker"]) {
+    assert.ok(window.document.querySelector(`[data-tool="${id}"]`), `${id} tool card must exist`);
+  }
+
   assert.deepStrictEqual(errors, [], `no runtime errors expected, got: ${errors.join(" | ")}`);
   console.log("UI smoke test: PASS (nav, studio, preview, swatches, layouts, shell, no JS errors)");
   dom.window.close();

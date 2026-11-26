@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.6.0
+- Rescue Center: restore points, quarantine batches and registry backup list
+  in one place, with explicit restore / empty actions.
+- Registry backup viewer: read-only inspection of `.reg` exports with path-safe
+  filename validation.
+- Installation Tracker UI reusing the existing `monitor` logs and removal plans.
+- 54 unit tests + UI smoke test.
+
 ## 1.5.0 — Trust & Security Update
 - Removed all Windows-protection-disable guidance; unified version numbers and MIT license.
 - Update hardening: GitHub-only HTTPS URLs, unique temp file, exact publisher check, safe relaunch.

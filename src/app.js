@@ -245,6 +245,26 @@ const DICT = {
     typedConfirmHint: "اكتب {word} للتأكيد",
     typedConfirmMismatch: "الكتابة غير مطابقة — لم يتم تنفيذ أي شيء",
     ctxAdminDenied: "فشل التغيير — يتطلب صلاحيات Administrator. شغّل VEXORA كمسؤول.",
+    rescue: "مركز الإنقاذ",
+    toolRescueDesc: "نقاط الاستعادة، الحجر الصحي، ونسخ الريجستري القابلة للاستعادة.",
+    regdiff: "عارض نسخ الريجستري",
+    toolRegDiffDesc: "عرض محتوى ملفات .reg قبل أي استعادة — للقراءة فقط.",
+    tracker: "متتبع التثبيت",
+    toolTrackerDesc: "سجلات التثبيت وسجلات الحذف القابلة للمراجعة.",
+    rescuePoints: "نقاط الاستعادة",
+    rescueQuarantine: "الحجر الصحي",
+    rescueBackups: "نسخ الريجستري",
+    rescueNoData: "لا توجد عناصر قابلة للاستعادة حالياً.",
+    rescueRestoreAll: "استعادة الحجر الصحي",
+    rescueEmpty: "إفراغ الحجر الصحي",
+    rescueCreatePoint: "إنشاء نقطة استعادة",
+    rescueOpenRestore: "فتح استعادة النظام",
+    regView: "عرض",
+    regNoBackups: "لا توجد نسخ احتياطية.",
+    regKeys: "مفاتيح",
+    regValues: "قيم",
+    trackerNoLogs: "لا توجد سجلات تثبيت.",
+    trackerPlan: "خطة الحذف",
     appearance: "استوديو المظهر",
     appearanceDesc: "اختر تصميم الواجهة ولونها ووضعها قبل اعتمادها — التغيير يظهر في المعاينة مباشرة.",
     appearanceLayout: "تصميم الواجهة",
@@ -779,7 +799,27 @@ const DICT = {
     typedConfirmHint: "Type {word} to confirm",
     typedConfirmMismatch: "Text did not match — nothing was changed",
     ctxAdminDenied: "Change failed — Administrator rights are required. Run VEXORA as administrator.",
-    appearance: "Appearance Studio",
+    rescue: "Rescue Center",
+  toolRescueDesc: "Restore points, quarantine and restorable registry backups.",
+  regdiff: "Registry backup viewer",
+  toolRegDiffDesc: "Inspect .reg backups before restoring — read only.",
+  tracker: "Installation tracker",
+  toolTrackerDesc: "Installation logs and reviewable removal plans.",
+  rescuePoints: "Restore points",
+  rescueQuarantine: "Quarantine",
+  rescueBackups: "Registry backups",
+  rescueNoData: "Nothing restorable right now.",
+  rescueRestoreAll: "Restore quarantine",
+  rescueEmpty: "Empty quarantine",
+  rescueCreatePoint: "Create restore point",
+  rescueOpenRestore: "Open System Restore",
+  regView: "View",
+  regNoBackups: "No backups found.",
+  regKeys: "Keys",
+  regValues: "Values",
+  trackerNoLogs: "No installation logs.",
+  trackerPlan: "Removal plan",
+  appearance: "Appearance Studio",
     appearanceDesc: "Choose the layout, accent and mode — changes appear in the preview instantly.",
     appearanceLayout: "Interface layout",
     appearanceAccent: "Accent color",
@@ -3064,6 +3104,9 @@ async function renderTools() {
     ["junk", t("junkFiles"), "tools"],
     ["services", t("services"), "settings"],
     ["monitor", t("monitor"), "search"],
+    ["rescue", t("rescue"), "shield"],
+    ["regdiff", t("regdiff"), "file"],
+    ["tracker", t("tracker"), "clock"],
   ];
 
   let body = "";
@@ -3428,6 +3471,76 @@ async function renderTools() {
            <button class="btn danger" id="adobeClean" style="margin-top:10px">${esc(t("adobeClean"))}</button>`
         : items ? `<div class="tiny muted">${esc(t("nothingFound"))}</div>` : `<div class="tiny muted">${esc(t("scanning"))}</div>`}
     </div>`;
+  } else if (tab === "rescue") {
+    const pts = state.tools.rescuePoints;
+    const q = state.tools.quarantine;
+    const bks = state.tools.regBackups;
+    if (pts === undefined) {
+      state.tools.rescuePoints = null;
+      call("restore_points", {}).then((v) => { state.tools.rescuePoints = v; if (state.page === "tools" && state.tools.tab === "rescue") go("tools"); }).catch(() => {});
+    }
+    if (q === undefined) {
+      state.tools.quarantine = null;
+      call("rescue_quarantine_list", {}).then((v) => { state.tools.quarantine = v; if (state.page === "tools" && state.tools.tab === "rescue") go("tools"); }).catch(() => {});
+    }
+    if (bks === undefined) {
+      state.tools.regBackups = null;
+      call("reg_backups_list", {}).then((v) => { state.tools.regBackups = v; if (state.page === "tools" && state.tools.tab === "rescue") go("tools"); }).catch(() => {});
+    }
+    const qRows = q && q.length
+      ? q.map((b) => `<div class="row" style="padding:6px 0"><span class="grow tiny ellipsis" style="direction:ltr;text-align:start">${esc(b.name)}</span>
+          <span class="tiny muted">${b.items.length} + ${b.regFiles} .reg</span></div>`).join("")
+      : "";
+    const bRows = bks && bks.length
+      ? bks.map((b) => `<div class="row" style="padding:6px 0"><span class="grow tiny ellipsis" style="direction:ltr;text-align:start">${esc(b.name)}</span>
+          <span class="tiny muted">${b.keys} ${esc(t("regKeys"))} · ${b.values} ${esc(t("regValues"))}</span>
+          <button class="btn small ghost" data-regview="${esc(b.name)}">${esc(t("regView"))}</button></div>`).join("")
+      : "";
+    body = `<div class="card flat">
+      <div class="tiny muted" style="margin-bottom:10px">${esc(t("rescueDesc") || t("toolRescueDesc"))}</div>
+      <div class="field-row" style="flex-wrap:wrap;gap:8px;margin-bottom:12px">
+        <button class="btn small" id="rescueCreate">${svg("plus", 14)}${esc(t("rescueCreatePoint"))}</button>
+        <button class="btn small ghost" id="rescueOpen">${esc(t("rescueOpenRestore"))}</button>
+        <button class="btn small ghost" id="rescueRestore">${esc(t("rescueRestoreAll"))}</button>
+        <button class="btn small ghost" id="rescueEmpty">${esc(t("rescueEmpty"))}</button>
+      </div>
+      <div class="vex-sec-label">${esc(t("rescuePoints"))}</div>
+      <div class="tiny muted">${pts && pts.length ? pts.length : "0"}</div>
+      <div class="vex-sec-label">${esc(t("rescueQuarantine"))}</div>
+      ${qRows || `<div class="tiny muted">${esc(t("rescueNoData"))}</div>`}
+      <div class="vex-sec-label">${esc(t("rescueBackups"))}</div>
+      ${bRows || `<div class="tiny muted">${esc(t("regNoBackups"))}</div>`}
+    </div>`;
+  } else if (tab === "regdiff") {
+    if (state.tools.regBackups === undefined) {
+      state.tools.regBackups = null;
+      call("reg_backups_list", {}).then((v) => { state.tools.regBackups = v; if (state.page === "tools" && state.tools.tab === "regdiff") go("tools"); }).catch(() => {});
+    }
+    const list = state.tools.regBackups || [];
+    const view = state.tools.regView;
+    body = `<div class="card flat">
+      ${list.length
+        ? list.map((b) => `<div class="row" style="padding:6px 0"><span class="grow tiny ellipsis" style="direction:ltr;text-align:start">${esc(b.name)}</span>
+            <span class="tiny muted">${b.keys} ${esc(t("regKeys"))}</span>
+            <button class="btn small ghost" data-regview="${esc(b.name)}">${esc(t("regView"))}</button></div>`).join("")
+        : `<div class="tiny muted">${esc(t("regNoBackups"))}</div>`}
+      ${view ? `<pre class="vex-reg-view" dir="ltr">${esc(view.map((k) => k.key + "\n" + k.lines.join("\n")).join("\n\n"))}</pre>` : ""}
+    </div>`;
+  } else if (tab === "tracker") {
+    if (state.tools.logs === undefined) {
+      state.tools.logs = null;
+      call("monitor_list", {}).then((v) => { state.tools.logs = v; if (state.page === "tools" && state.tools.tab === "tracker") go("tools"); }).catch(() => {});
+    }
+    const logs = state.tools.logs || [];
+    body = `<div class="card flat">
+      ${logs.length
+        ? logs.map((l, i) => `<div class="row" style="padding:8px 0;border-bottom:1px solid var(--line)">
+            <div class="grow min0"><div style="font-weight:600">${esc(l.name)}</div>
+              <div class="tiny muted">${esc(fmtDate(l.ts))} · ${l.changes ? l.changes.length : 0}</div></div>
+            <button class="btn small ghost" data-trackerplan="${i}">${esc(t("trackerPlan"))}</button></div>`).join("")
+        : `<div class="tiny muted">${esc(t("trackerNoLogs"))}</div>`}
+      ${state.tools.trackerPlan ? `<pre class="vex-reg-view" dir="ltr">${esc(state.tools.trackerPlan.items.filter((x) => x.safe).map((x) => x.path).join("\n"))}</pre>` : ""}
+    </div>`;
   } else if (tab === "hwmon") {
     if (state.tools.hwmon === undefined) {
       state.tools.hwmon = null;
@@ -3654,6 +3767,9 @@ async function renderTools() {
     ["junk", "tools", t("junkFiles"), t("toolJunkDesc")],
     ["services", "settings", t("services"), t("toolServicesDesc")],
     ["monitor", "search", t("monitor"), t("toolMonitorDesc")],
+    ["rescue", "shield", t("rescue"), t("toolRescueDesc")],
+    ["regdiff", "file", t("regdiff"), t("toolRegDiffDesc")],
+    ["tracker", "clock", t("tracker"), t("toolTrackerDesc")],
     ["similar", "apps", t("similarImages"), t("toolSimilarDesc")],
   ];
 
@@ -3870,6 +3986,46 @@ async function renderTools() {
         state.tools.adobeItems = undefined;
         go("tools");
       };
+  }
+  if (tab === "rescue") {
+    const act = (id, cmd) => {
+      const el = $(id);
+      if (el) el.onclick = async () => {
+        try {
+          const n = await call(cmd, {}, t("rescueRestoreAll"));
+          toast(`${t("done")}: ${n}`);
+          state.tools.quarantine = undefined;
+          state.tools.regBackups = undefined;
+          go("tools");
+        } catch (e) { toast(String(e), "error"); }
+      };
+    };
+    act("rescueRestore", "quarantine_restore");
+    act("rescueEmpty", "quarantine_empty");
+    if ($("#rescueCreate")) $("#rescueCreate").onclick = async () => {
+      try { await call("restore_create", { description: "VEXORA — manual" }); toast(t("done")); }
+      catch (e) { toast(String(e), "error"); }
+    };
+    if ($("#rescueOpen")) $("#rescueOpen").onclick = () => invoke("restore_open").catch((e) => toast(String(e), "error"));
+  }
+  if (tab === "regdiff" || tab === "rescue") {
+    $$("[data-regview]").forEach((b) => (b.onclick = async () => {
+      try {
+        state.tools.regView = await call("reg_backup_view", { name: b.dataset.regview });
+        if (tab === "rescue") state.tools.tab = "regdiff";
+        go("tools");
+      } catch (e) { toast(String(e), "error"); }
+    }));
+  }
+  if (tab === "tracker") {
+    $$("[data-trackerplan]").forEach((b) => (b.onclick = async () => {
+      const l = (state.tools.logs || [])[Number(b.dataset.trackerplan)];
+      if (!l) return;
+      try {
+        state.tools.trackerPlan = await call("monitor_uninstall_plan", { name: l.name });
+        go("tools");
+      } catch (e) { toast(String(e), "error"); }
+    }));
   }
   if (tab === "hwmon") {
     const btn = $("#hwRefresh");

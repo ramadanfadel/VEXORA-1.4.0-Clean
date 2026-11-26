@@ -17,6 +17,7 @@ pub mod ctxmenu;
 pub mod repair;
 pub mod regutil;
 pub mod registry;
+pub mod regdiff;
 pub mod restore;
 pub mod safety;
 pub mod scan;
@@ -1132,6 +1133,21 @@ fn quarantine_empty() -> Result<usize, String> {
 }
 
 #[tauri::command]
+fn rescue_quarantine_list() -> Result<Vec<safety::QuarantineBatch>, String> {
+    Ok(safety::quarantine_list())
+}
+
+#[tauri::command]
+fn reg_backups_list() -> Result<Vec<regdiff::RegBackup>, String> {
+    Ok(regdiff::list())
+}
+
+#[tauri::command]
+fn reg_backup_view(name: String) -> Result<Vec<regdiff::RegKeyView>, String> {
+    regdiff::view(&name)
+}
+
+#[tauri::command]
 async fn program_icons(keys: Vec<String>) -> Result<std::collections::HashMap<String, String>, String> {
     tauri::async_runtime::spawn_blocking(move || uninstall::extract_icons(&keys))
         .await
@@ -1803,6 +1819,9 @@ pub fn run() {
             monitor_uninstall_selected,
             quarantine_restore,
             quarantine_empty,
+            rescue_quarantine_list,
+            reg_backups_list,
+            reg_backup_view,
             forced_uninstall,
             leftovers_level,
             hunter_capture,

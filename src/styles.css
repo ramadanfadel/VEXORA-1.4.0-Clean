@@ -397,6 +397,11 @@ html[dir="rtl"] .toggle.on::after { transform: translateX(-18px); }
 .vex-update-dock svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 
 /* ------------------------- Appearance Studio (scoped) -------------------- */
+.vex-reg-view {
+  margin-top: 12px; max-height: 280px; overflow: auto; padding: 10px;
+  border: 1px solid var(--line); border-radius: 10px; background: var(--card-2);
+  color: var(--text); font-size: 10px; line-height: 1.5; white-space: pre-wrap; word-break: break-word;
+}
 .vex-appearance-body { display: grid; grid-template-columns: minmax(220px,.9fr) minmax(260px,1.1fr); gap: 16px; }
 @media (max-width: 900px) { .vex-appearance-body { grid-template-columns: 1fr; } }
 .vex-sec-label { font-size: 11px; color: var(--muted); margin: 10px 0 6px; }

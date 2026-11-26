@@ -330,6 +330,58 @@ pub fn quarantine_restore() -> Result<usize, String> {
     Ok(restored)
 }
 
+/// A restorable batch currently held in quarantine.
+#[derive(Serialize, Clone, Debug, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct QuarantineBatch {
+    pub name: String,
+    pub items: Vec<(String, String)>, // (stored name, original path)
+    pub reg_files: usize,
+}
+
+/// List everything that can still be restored. Read-only.
+pub fn quarantine_list() -> Vec<QuarantineBatch> {
+    let root = crate::util::data_dir().join("Quarantine");
+    let mut out = Vec::new();
+    if let Ok(rd) = std::fs::read_dir(&root) {
+        for batch in rd.flatten() {
+            let dir = batch.path();
+            if !dir.is_dir() {
+                continue;
+            }
+            let mut items = Vec::new();
+            if let Ok(text) = std::fs::read_to_string(dir.join("manifest.json")) {
+                if let Ok(map) =
+                    serde_json::from_str::<std::collections::HashMap<String, String>>(&text)
+                {
+                    for (stored, original) in map {
+                        if dir.join(&stored).exists() {
+                            items.push((stored, original));
+                        }
+                    }
+                }
+            }
+            let mut reg_files = 0;
+            if let Ok(inner) = std::fs::read_dir(&dir) {
+                for e in inner.flatten() {
+                    if e.path().extension().map(|x| x == "reg").unwrap_or(false) {
+                        reg_files += 1;
+                    }
+                }
+            }
+            if !items.is_empty() || reg_files > 0 {
+                out.push(QuarantineBatch {
+                    name: dir.file_name().unwrap_or_default().to_string_lossy().to_string(),
+                    items,
+                    reg_files,
+                });
+            }
+        }
+    }
+    out.sort_by(|a, b| b.name.cmp(&a.name));
+    out
+}
+
 /// Permanently empty the quarantine folder.
 pub fn quarantine_empty() -> Result<usize, String> {
     let root = crate::util::data_dir().join("Quarantine");
