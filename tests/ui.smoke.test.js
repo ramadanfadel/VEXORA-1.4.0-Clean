@@ -106,7 +106,7 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   // New 1.6.0 tool cards must exist when the Tools page is rendered.
   window.document.querySelector('[data-nav="tools"]').click();
   await wait(250);
-  for (const id of ["softupdater", "designercare", "fontmanager", "hwcenter", "startanalyzer", "privacy", "doctor", "rescue", "regdiff", "tracker"]) {
+  for (const id of ["automation", "perflab", "softupdater", "designercare", "fontmanager", "hwcenter", "startanalyzer", "privacy", "doctor", "rescue", "regdiff", "tracker"]) {
     assert.ok(window.document.querySelector(`[data-tool="${id}"]`), `${id} tool card must exist`);
   }
 

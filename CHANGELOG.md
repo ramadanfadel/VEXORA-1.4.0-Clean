@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.9.0
+- HyperScan: real parallel BLAKE3 duplicate scanner with full groups (no placeholders).
+- Performance Lab with a local measured benchmark; results in BENCHMARKS.md.
+- Smart Automation: reviewable rules, dry-run by default, imported rules forced to dry-run.
+- 64 unit tests + UI smoke test.
+
 ## 1.8.0
 - Software Updater: read-only winget upgrade scan and explicit single-app upgrade.
 - Designer Care: Adobe cache / similar-image summary linking to existing tools.

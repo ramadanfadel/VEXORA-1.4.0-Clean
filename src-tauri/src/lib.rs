@@ -2,12 +2,14 @@
 
 pub mod catalog;
 pub mod battery;
+pub mod automation;
 pub mod hwmon;
 pub mod boost;
 pub mod bgmonitor;
 pub mod browsers;
 pub mod clean;
 pub mod history;
+pub mod hyperscan;
 pub mod fonts;
 pub mod junk;
 pub mod log;
@@ -154,6 +156,123 @@ async fn doctor_assess() -> Result<doctor::DoctorReport, String> {
     })
     .await
     .map_err(|e| e.to_string())
+}
+
+#[derive(Serialize)]
+struct BenchResult {
+    files: u32,
+    bytes: u64,
+    elapsed_ms: u64,
+    mb_per_s: f64,
+}
+
+#[tauri::command]
+async fn quick_bench() -> Result<BenchResult, String> {
+    tauri::async_runtime::spawn_blocking(bench_sync)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+fn bench_sync() -> BenchResult {
+    let start = std::time::Instant::now();
+    let mut files = 0u32;
+    let mut bytes = 0u64;
+    for entry in walkdir::WalkDir::new(std::env::temp_dir())
+        .follow_links(false)
+        .max_depth(2)
+        .into_iter()
+        .flatten()
+        .take(100)
+    {
+        if !entry.file_type().is_file() {
+            continue;
+        }
+        let path = entry.path();
+        if crate::safety::is_reparse_point(path) || !safety::clean_path_allowed(path) {
+            continue;
+        }
+        if let Ok(meta) = entry.metadata() {
+            if hyperscan::hash_file(path).is_some() {
+                files += 1;
+                bytes += meta.len();
+            }
+        }
+    }
+    let elapsed = start.elapsed();
+    let elapsed_ms = elapsed.as_millis() as u64;
+    let mb_per_s = if elapsed_ms > 0 {
+        (bytes as f64 / 1048576.0) / elapsed.as_secs_f64()
+    } else {
+        0.0
+    };
+    BenchResult {
+        files,
+        bytes,
+        elapsed_ms,
+        mb_per_s,
+    }
+}
+
+#[tauri::command]
+fn automation_rules(state: State<'_, AppState>) -> Result<Vec<automation::Rule>, String> {
+    Ok(state.settings.lock().unwrap().automation_rules.clone())
+}
+
+#[tauri::command]
+fn automation_save(
+    state: State<'_, AppState>,
+    rules: Vec<automation::Rule>,
+) -> Result<Vec<automation::Rule>, String> {
+    let mut s = state.settings.lock().unwrap().clone();
+    s.automation_rules = rules;
+    s.sanitize();
+    s.save()?;
+    *state.settings.lock().unwrap() = s.clone();
+    Ok(s.automation_rules)
+}
+
+#[tauri::command]
+async fn automation_run(state: State<'_, AppState>) -> Result<Vec<automation::Outcome>, String> {
+    let rules = state.settings.lock().unwrap().automation_rules.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let h = sysinfo::health();
+        let pct = if h.mem_total > 0 {
+            100.0 * h.mem_used.min(h.mem_total) as f32 / h.mem_total as f32
+        } else {
+            0.0
+        };
+        let outcomes = automation::evaluate(&rules, pct);
+        for o in &outcomes {
+            if !o.executes {
+                continue;
+            }
+            let rule = rules.iter().find(|r| r.id == o.rule_id);
+            match rule.map(|r| r.action.as_str()) {
+                Some("trim_memory") => {
+                    let _ = ramopt::clean();
+                }
+                Some("clean_temp") => {
+                    let paths: Vec<String> = junk::scan(2000)
+                        .items
+                        .iter()
+                        .map(|i| i.path.clone())
+                        .collect();
+                    let _ = junk::delete(&paths);
+                }
+                _ => {}
+            }
+        }
+        outcomes
+    })
+    .await
+    .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn hyper_dup_scan(roots: Vec<String>, min_size: u64) -> Result<tools::DupResult, String> {
+    tauri::async_runtime::spawn_blocking(move || hyperscan::scan(&roots, min_size))
+        .await
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -1771,6 +1890,11 @@ pub fn run() {
             get_health,
             system_specs,
             doctor_assess,
+            hyper_dup_scan,
+            automation_rules,
+            quick_bench,
+            automation_save,
+            automation_run,
             software_updates_scan,
             software_upgrade,
             scan_cleaners,
@@ -2134,4 +2258,19 @@ pub fn run_autoclean() {
         freed,
         removed,
     );
+}
+
+#[cfg(test)]
+mod bench_tests {
+    use super::*;
+
+    #[test]
+    fn quick_bench_returns_real_numbers() {
+        let r = bench_sync();
+        println!(
+            "BENCH files={} bytes={} elapsed_ms={} mb_per_s={:.2}",
+            r.files, r.bytes, r.elapsed_ms, r.mb_per_s
+        );
+        assert!(r.files <= 100);
+    }
 }

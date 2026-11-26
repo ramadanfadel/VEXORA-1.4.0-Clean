@@ -245,6 +245,20 @@ const DICT = {
     typedConfirmHint: "اكتب {word} للتأكيد",
     typedConfirmMismatch: "الكتابة غير مطابقة — لم يتم تنفيذ أي شيء",
     ctxAdminDenied: "فشل التغيير — يتطلب صلاحيات Administrator. شغّل VEXORA كمسؤول.",
+    automation: "الأتمتة الذكية",
+    toolAutomationDesc: "قواعد صيانة قابلة للمراجعة — وضع التجربة افتراضياً.",
+    perflab: "مختبر الأداء",
+    toolPerfLabDesc: "قياس فعلي لسرعة التجزئة على ملفات مؤقتة محلية.",
+    autoRun: "تشغيل القواعد",
+    autoDry: "تجربة فقط",
+    autoLive: "تنفيذ فعلي",
+    autoNoRules: "لا توجد قواعد. أضف قاعدة من الإعدادات أو استخدم الافتراضي.",
+    benchRun: "قياس",
+    benchFiles: "ملفات",
+    benchSpeed: "ميجابايت/ث",
+    scanEngine: "محرك الفحص",
+    engineClassic: "كلاسيكي",
+    engineHyper: "متوازٍ (HyperScan)",
     softupdater: "تحديث البرامج",
     toolSoftUpdaterDesc: "فحص تحديثات البرامج المثبتة عبر winget — التحديث بضغطة صريحة.",
     designercare: "العناية بالتصميم",
@@ -828,7 +842,21 @@ const DICT = {
     typedConfirmHint: "Type {word} to confirm",
     typedConfirmMismatch: "Text did not match — nothing was changed",
     ctxAdminDenied: "Change failed — Administrator rights are required. Run VEXORA as administrator.",
-    softupdater: "Software Updater",
+    automation: "Smart Automation",
+  toolAutomationDesc: "Reviewable maintenance rules — dry-run by default.",
+  perflab: "Performance Lab",
+  toolPerfLabDesc: "Real local hashing benchmark on temporary files.",
+  autoRun: "Run rules",
+  autoDry: "Dry run",
+  autoLive: "Live",
+  autoNoRules: "No rules. Add one in Settings or use the defaults.",
+  benchRun: "Measure",
+  benchFiles: "files",
+  benchSpeed: "MB/s",
+  scanEngine: "Scan engine",
+  engineClassic: "Classic",
+  engineHyper: "Parallel (HyperScan)",
+  softupdater: "Software Updater",
   toolSoftUpdaterDesc: "Check installed app updates with winget — upgrades are explicit.",
   designercare: "Designer Care",
   toolDesignerCareDesc: "Adobe cache and similar-image summary with shortcuts to existing tools.",
@@ -3162,6 +3190,8 @@ async function renderTools() {
     ["junk", t("junkFiles"), "tools"],
     ["services", t("services"), "settings"],
     ["monitor", t("monitor"), "search"],
+    ["automation", t("automation"), "clock"],
+    ["perflab", t("perflab"), "zap"],
     ["softupdater", t("softupdater"), "refresh"],
     ["designercare", t("designercare"), "apps"],
     ["fontmanager", t("fontmanager"), "file"],
@@ -3188,6 +3218,10 @@ async function renderTools() {
       </div>
       <div class="field-row" style="margin-top:12px">
         <div class="field"><label>${esc(t("minSize"))} (KB)</label><input type="number" id="dupMin" value="${res ? res._min : 64}" /></div>
+        <div class="field"><label>${esc(t("scanEngine"))}</label><select id="dupEngine" class="btn" style="padding:8px 10px">
+          <option value="classic">${esc(t("engineClassic"))}</option>
+          <option value="hyper" ${state.tools.dupEngine === "hyper" ? "selected" : ""}>${esc(t("engineHyper"))}</option>
+        </select></div>
         <button class="btn primary" id="dupScan">${svg("search")}${esc(t("scan"))}</button>
         ${state.tools.scanning ? `<button class="btn danger" id="dupStop">${svg("x")}${esc(t("stop"))}</button>` : ""}
       </div>
@@ -3535,6 +3569,36 @@ async function renderTools() {
         ? `<div class="filelist" style="max-height:360px;overflow:auto">${items.map((it, i) => `<label class="f" style="gap:8px;cursor:pointer"><input type="checkbox" data-adobe="${i}" checked style="accent-color:var(--accent)" /><span class="grow ellipsis tiny" style="direction:ltr;text-align:start">${esc(it.path)}</span><span class="tiny muted">${esc(it.kind)}</span><span>${fmtBytes(it.size)}</span></label>`).join("")}</div>
            <button class="btn danger" id="adobeClean" style="margin-top:10px">${esc(t("adobeClean"))}</button>`
         : items ? `<div class="tiny muted">${esc(t("nothingFound"))}</div>` : `<div class="tiny muted">${esc(t("scanning"))}</div>`}
+    </div>`;
+  } else if (tab === "automation") {
+    if (state.tools.autoRules === undefined) {
+      state.tools.autoRules = null;
+      call("automation_rules", {}).then((v) => { state.tools.autoRules = v; if (state.page === "tools" && state.tools.tab === "automation") go("tools"); }).catch(() => {});
+    }
+    const rules = state.tools.autoRules || [];
+    const outs = state.tools.autoOutcomes || [];
+    body = `<div class="card flat">
+      <div class="field-row" style="margin-bottom:10px">
+        <button class="btn small primary" id="autoRun">${svg("play", 14)}${esc(t("autoRun"))}</button>
+        <span class="tiny muted">${rules.length}</span>
+      </div>
+      ${rules.length
+        ? rules.map((r, i) => `<div class="row" style="padding:8px 0;border-bottom:1px solid var(--line)">
+            <div class="grow min0"><div style="font-weight:600">${esc(r.name)}</div>
+              <div class="tiny muted">${esc(r.action)} · ${r.dryRun ? esc(t("autoDry")) : esc(t("autoLive"))}${r.enabled ? "" : " · off"}</div></div>
+            <div class="toggle ${r.enabled ? "on" : ""}" data-autoenabled="${i}"></div>
+            <div class="toggle ${r.dryRun ? "on" : ""}" data-autodry="${i}"></div></div>`).join("")
+        : `<div class="tiny muted">${esc(t("autoNoRules"))}</div>`}
+      ${outs.length ? `<div class="vex-reg-view" dir="ltr">${outs.map((o) => `${o.ruleId}: ${o.detail} (${o.executes ? "executed" : o.wouldRun ? "would run" : "skipped"})`).join("\n")}</div>` : ""}
+    </div>`;
+  } else if (tab === "perflab") {
+    const b = state.tools.bench;
+    body = `<div class="card flat">
+      <button class="btn small primary" id="benchRun">${svg("refresh", 14)}${esc(t("benchRun"))}</button>
+      ${b ? `<div class="kv"><span>${esc(t("benchFiles"))}</span><span>${b.files}</span></div>
+             <div class="kv"><span>${esc(t("benchSpeed"))}</span><span>${b.mbPerS.toFixed(1)}</span></div>
+             <div class="kv"><span>ms</span><span>${b.elapsedMs}</span></div>
+             <div class="tiny muted">${esc(b.bytes)} bytes hashed locally — no network</div>` : ""}
     </div>`;
   } else if (tab === "softupdater") {
     const ups = state.tools.softUpdates;
@@ -3958,6 +4022,8 @@ async function renderTools() {
     ["junk", "tools", t("junkFiles"), t("toolJunkDesc")],
     ["services", "settings", t("services"), t("toolServicesDesc")],
     ["monitor", "search", t("monitor"), t("toolMonitorDesc")],
+    ["automation", "clock", t("automation"), t("toolAutomationDesc")],
+    ["perflab", "zap", t("perflab"), t("toolPerfLabDesc")],
     ["softupdater", "refresh", t("softupdater"), t("toolSoftUpdaterDesc")],
     ["designercare", "apps", t("designercare"), t("toolDesignerCareDesc")],
     ["fontmanager", "file", t("fontmanager"), t("toolFontManagerDesc")],
@@ -4033,7 +4099,11 @@ async function renderTools() {
       state.tools.dupScanned = 0;
       await go("tools");
       try {
-        const res = await call("dup_scan", { roots, minSize: min, engine: "classic" });
+        const engine = ($("#dupEngine") && $("#dupEngine").value) || "classic";
+        state.tools.dupEngine = engine;
+        const res = engine === "hyper"
+          ? await call("hyper_dup_scan", { roots, minSize: min }, t("scanning"))
+          : await call("dup_scan", { roots, minSize: min, engine: "classic" });
         res._min = min / 1024;
         state.tools.results.dupes = res;
       } finally {
@@ -4184,6 +4254,34 @@ async function renderTools() {
         state.tools.adobeItems = undefined;
         go("tools");
       };
+  }
+  if (tab === "automation") {
+    if ($("#autoRun")) $("#autoRun").onclick = async () => {
+      try {
+        state.tools.autoOutcomes = await call("automation_run", {}, t("autoRun"));
+        go("tools");
+      } catch (e) { toast(String(e), "error"); }
+    };
+    const saveRules = async (rules) => {
+      try { state.tools.autoRules = await call("automation_save", { rules }); go("tools"); }
+      catch (e) { toast(String(e), "error"); }
+    };
+    $$("[data-autoenabled]").forEach((b) => (b.onclick = () => {
+      const rules = JSON.parse(JSON.stringify(state.tools.autoRules || []));
+      const i = Number(b.dataset.autoenabled);
+      if (rules[i]) { rules[i].enabled = !rules[i].enabled; saveRules(rules); }
+    }));
+    $$("[data-autodry]").forEach((b) => (b.onclick = () => {
+      const rules = JSON.parse(JSON.stringify(state.tools.autoRules || []));
+      const i = Number(b.dataset.autodry);
+      if (rules[i]) { rules[i].dryRun = !rules[i].dryRun; saveRules(rules); }
+    }));
+  }
+  if (tab === "perflab") {
+    if ($("#benchRun")) $("#benchRun").onclick = async () => {
+      try { state.tools.bench = await call("quick_bench", {}, t("benchRun")); go("tools"); }
+      catch (e) { toast(String(e), "error"); }
+    };
   }
   if (tab === "softupdater") {
     if ($("#softScan")) $("#softScan").onclick = async () => {

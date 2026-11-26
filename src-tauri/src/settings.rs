@@ -60,6 +60,8 @@ pub struct Settings {
     pub appearance_animation: bool,
     /// Independent migration flag; never derived from `first_run`.
     pub appearance_migrated: bool,
+    /// User-defined maintenance rules. Imported rules are forced to dry-run.
+    pub automation_rules: Vec<crate::automation::Rule>,
     pub minimize_to_tray: bool,
     pub show_bubble: bool,
     // ---- Background resource monitoring ----
@@ -124,6 +126,22 @@ impl Default for Settings {
             appearance_glow: true,
             appearance_animation: true,
             appearance_migrated: false,
+            automation_rules: vec![
+                crate::automation::Rule {
+                    id: "temp-dry".into(),
+                    name: "Temp cleanup (dry run)".into(),
+                    enabled: false,
+                    dry_run: true,
+                    action: "clean_temp".into(),
+                },
+                crate::automation::Rule {
+                    id: "memory-dry".into(),
+                    name: "Memory boost above 80% (dry run)".into(),
+                    enabled: false,
+                    dry_run: true,
+                    action: "trim_memory".into(),
+                },
+            ],
             minimize_to_tray: true,
             show_bubble: true,
             bg_monitor_enabled: false,
@@ -298,6 +316,7 @@ impl Settings {
         if self.appearance_mode != "dark" && self.appearance_mode != "light" {
             self.appearance_mode = "dark".into();
         }
+        crate::automation::sanitize(&mut self.automation_rules);
     }
 
     pub fn is_excluded(&self, path: &str) -> bool {
