@@ -14,6 +14,8 @@ pub mod fonts;
 pub mod junk;
 pub mod log;
 pub mod monitor;
+pub mod network;
+pub mod transfer;
 pub mod ramopt;
 pub mod ctxmenu;
 pub mod doctor;
@@ -273,6 +275,24 @@ async fn hyper_dup_scan(roots: Vec<String>, min_size: u64) -> Result<tools::DupR
     tauri::async_runtime::spawn_blocking(move || hyperscan::scan(&roots, min_size))
         .await
         .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn network_status() -> Result<Vec<network::AdapterInfo>, String> {
+    tauri::async_runtime::spawn_blocking(network::status)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn transfer_copy(
+    src: String,
+    dst: String,
+    overwrite: bool,
+) -> Result<transfer::TransferResult, String> {
+    tauri::async_runtime::spawn_blocking(move || transfer::copy_verified(&src, &dst, overwrite))
+        .await
+        .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
@@ -1895,6 +1915,8 @@ pub fn run() {
             quick_bench,
             automation_save,
             automation_run,
+            network_status,
+            transfer_copy,
             software_updates_scan,
             software_upgrade,
             scan_cleaners,

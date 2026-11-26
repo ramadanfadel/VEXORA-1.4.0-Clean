@@ -245,6 +245,21 @@ const DICT = {
     typedConfirmHint: "اكتب {word} للتأكيد",
     typedConfirmMismatch: "الكتابة غير مطابقة — لم يتم تنفيذ أي شيء",
     ctxAdminDenied: "فشل التغيير — يتطلب صلاحيات Administrator. شغّل VEXORA كمسؤول.",
+    network: "الشبكة (قراءة فقط)",
+    toolNetworkDesc: "عرض المحولات وعناوين IP وDNS بدون أي تغيير في الإعدادات.",
+    transfer: "نقل الملفات",
+    toolTransferDesc: "نسخ محلي مع تحقق BLAKE3 ورفض الكتابة فوق الملفات إلا بصريح.",
+    networkRefresh: "تحديث",
+    networkNone: "لا توجد محولات نشطة.",
+    networkDhcp: "DHCP",
+    networkDns: "DNS",
+    networkGateway: "البوابة",
+    transferSrc: "الملف المصدر",
+    transferDst: "الوجهة",
+    transferRun: "نسخ مع تحقق",
+    transferOverwrite: "كتابة فوق",
+    transferVerified: "تم التحقق",
+    transferBytes: "بايت",
     automation: "الأتمتة الذكية",
     toolAutomationDesc: "قواعد صيانة قابلة للمراجعة — وضع التجربة افتراضياً.",
     perflab: "مختبر الأداء",
@@ -842,7 +857,22 @@ const DICT = {
     typedConfirmHint: "Type {word} to confirm",
     typedConfirmMismatch: "Text did not match — nothing was changed",
     ctxAdminDenied: "Change failed — Administrator rights are required. Run VEXORA as administrator.",
-    automation: "Smart Automation",
+    network: "Network (read-only)",
+  toolNetworkDesc: "View adapters, IPs and DNS without changing anything.",
+  transfer: "File Transfer",
+  toolTransferDesc: "Local copy with BLAKE3 verification; overwrite only when explicit.",
+  networkRefresh: "Refresh",
+  networkNone: "No active adapters.",
+  networkDhcp: "DHCP",
+  networkDns: "DNS",
+  networkGateway: "Gateway",
+  transferSrc: "Source file",
+  transferDst: "Destination",
+  transferRun: "Copy & verify",
+  transferOverwrite: "Overwrite",
+  transferVerified: "Verified",
+  transferBytes: "bytes",
+  automation: "Smart Automation",
   toolAutomationDesc: "Reviewable maintenance rules — dry-run by default.",
   perflab: "Performance Lab",
   toolPerfLabDesc: "Real local hashing benchmark on temporary files.",
@@ -3190,6 +3220,8 @@ async function renderTools() {
     ["junk", t("junkFiles"), "tools"],
     ["services", t("services"), "settings"],
     ["monitor", t("monitor"), "search"],
+    ["network", t("network"), "apps"],
+    ["transfer", t("transfer"), "file"],
     ["automation", t("automation"), "clock"],
     ["perflab", t("perflab"), "zap"],
     ["softupdater", t("softupdater"), "refresh"],
@@ -3569,6 +3601,38 @@ async function renderTools() {
         ? `<div class="filelist" style="max-height:360px;overflow:auto">${items.map((it, i) => `<label class="f" style="gap:8px;cursor:pointer"><input type="checkbox" data-adobe="${i}" checked style="accent-color:var(--accent)" /><span class="grow ellipsis tiny" style="direction:ltr;text-align:start">${esc(it.path)}</span><span class="tiny muted">${esc(it.kind)}</span><span>${fmtBytes(it.size)}</span></label>`).join("")}</div>
            <button class="btn danger" id="adobeClean" style="margin-top:10px">${esc(t("adobeClean"))}</button>`
         : items ? `<div class="tiny muted">${esc(t("nothingFound"))}</div>` : `<div class="tiny muted">${esc(t("scanning"))}</div>`}
+    </div>`;
+  } else if (tab === "network") {
+    if (state.tools.netAdapters === undefined) {
+      state.tools.netAdapters = null;
+      call("network_status", {}).then((v) => { state.tools.netAdapters = v; if (state.page === "tools" && state.tools.tab === "network") go("tools"); }).catch(() => {});
+    }
+    const a = state.tools.netAdapters || [];
+    body = `<div class="card flat">
+      <div class="field-row" style="margin-bottom:10px">
+        <button class="btn small primary" id="netRefresh">${svg("refresh", 14)}${esc(t("networkRefresh"))}</button>
+        <span class="tiny muted">${a.length}</span>
+      </div>
+      ${a.length
+        ? a.map((n) => `<div style="padding:10px 0;border-bottom:1px solid var(--line)">
+            <div style="font-weight:600">${esc(n.name)} <span class="tiny muted">${esc(n.status)}</span></div>
+            <div class="tiny muted" style="direction:ltr;text-align:start">${(n.ips || []).join(" · ")}</div>
+            <div class="tiny muted">${esc(t("networkGateway"))}: ${(n.gateways || []).join(" · ") || "—"}</div>
+            <div class="tiny muted">${esc(t("networkDns"))}: ${(n.dns || []).join(" · ") || "—"}</div>
+            <div class="tiny muted">${esc(t("networkDhcp"))}: ${n.dhcp ? "on" : "off"} · ${esc(n.mac)}</div>
+          </div>`).join("")
+        : `<div class="tiny muted">${esc(t("networkNone"))}</div>`}
+    </div>`;
+  } else if (tab === "transfer") {
+    const r = state.tools.transferResult;
+    body = `<div class="card flat">
+      <div class="field"><label>${esc(t("transferSrc"))}</label><input type="text" id="transferSrc" value="${esc(state.tools.transferSrc || "")}" style="direction:ltr;width:100%" /></div>
+      <div class="field" style="margin-top:8px"><label>${esc(t("transferDst"))}</label><input type="text" id="transferDst" value="${esc(state.tools.transferDst || "")}" style="direction:ltr;width:100%" /></div>
+      <div class="field-row" style="margin-top:10px;align-items:center;gap:8px">
+        <button class="btn small primary" id="transferRun">${svg("file", 14)}${esc(t("transferRun"))}</button>
+        <label class="tiny muted"><input type="checkbox" id="transferOverwrite" ${state.tools.transferOverwrite ? "checked" : ""} /> ${esc(t("transferOverwrite"))}</label>
+      </div>
+      ${r ? `<div class="tiny" style="margin-top:10px">${esc(t("transferVerified"))}: ${r.verified} · ${r.bytes} ${esc(t("transferBytes"))} · <span style="direction:ltr">${esc(r.dstHash)}</span></div>` : ""}
     </div>`;
   } else if (tab === "automation") {
     if (state.tools.autoRules === undefined) {
@@ -4022,6 +4086,8 @@ async function renderTools() {
     ["junk", "tools", t("junkFiles"), t("toolJunkDesc")],
     ["services", "settings", t("services"), t("toolServicesDesc")],
     ["monitor", "search", t("monitor"), t("toolMonitorDesc")],
+    ["network", "apps", t("network"), t("toolNetworkDesc")],
+    ["transfer", "file", t("transfer"), t("toolTransferDesc")],
     ["automation", "clock", t("automation"), t("toolAutomationDesc")],
     ["perflab", "zap", t("perflab"), t("toolPerfLabDesc")],
     ["softupdater", "refresh", t("softupdater"), t("toolSoftUpdaterDesc")],
@@ -4254,6 +4320,28 @@ async function renderTools() {
         state.tools.adobeItems = undefined;
         go("tools");
       };
+  }
+  if (tab === "network") {
+    if ($("#netRefresh")) $("#netRefresh").onclick = async () => {
+      try { state.tools.netAdapters = await call("network_status", {}); go("tools"); }
+      catch (e) { toast(String(e), "error"); }
+    };
+  }
+  if (tab === "transfer") {
+    if ($("#transferRun")) $("#transferRun").onclick = async () => {
+      state.tools.transferSrc = ($("#transferSrc").value || "").trim();
+      state.tools.transferDst = ($("#transferDst").value || "").trim();
+      state.tools.transferOverwrite = !!($("#transferOverwrite").checked);
+      try {
+        state.tools.transferResult = await call("transfer_copy", {
+          src: state.tools.transferSrc,
+          dst: state.tools.transferDst,
+          overwrite: state.tools.transferOverwrite,
+        }, t("transferRun"));
+        toast(t("transferVerified"), "ok");
+        go("tools");
+      } catch (e) { toast(String(e), "error"); }
+    };
   }
   if (tab === "automation") {
     if ($("#autoRun")) $("#autoRun").onclick = async () => {

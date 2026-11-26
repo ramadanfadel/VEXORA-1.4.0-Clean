@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.0.0
+- Network Manager: read-only adapter/IP/DNS overview (no configuration changes).
+- Smart File Transfer: local copy verified with BLAKE3, overwrite only when explicit.
+- Portable Edition: `portable.json` marker switches data storage beside the exe;
+  `scripts/build-portable.ps1` packages the release build.
+- 66 unit tests + UI smoke test.
+
 ## 1.9.0
 - HyperScan: real parallel BLAKE3 duplicate scanner with full groups (no placeholders).
 - Performance Lab with a local measured benchmark; results in BENCHMARKS.md.

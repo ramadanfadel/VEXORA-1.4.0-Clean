@@ -72,6 +72,18 @@ pub fn temp_dir() -> String {
 }
 
 pub fn data_dir() -> PathBuf {
+    // Portable edition: placing `portable.json` next to the executable keeps
+    // all settings/history/logs in a local `VEXORA-Data` folder instead of
+    // %APPDATA%. The installer never creates that marker.
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(dir) = exe.parent() {
+            if dir.join("portable.json").is_file() {
+                let p = dir.join("VEXORA-Data");
+                let _ = std::fs::create_dir_all(&p);
+                return p;
+            }
+        }
+    }
     let base = std::env::var("APPDATA").unwrap_or_else(|_| ".".into());
     let p = PathBuf::from(base).join("VEXORA");
     let _ = std::fs::create_dir_all(&p);
