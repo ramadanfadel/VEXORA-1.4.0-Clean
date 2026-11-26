@@ -14,6 +14,7 @@ pub mod log;
 pub mod monitor;
 pub mod ramopt;
 pub mod ctxmenu;
+pub mod doctor;
 pub mod repair;
 pub mod regutil;
 pub mod registry;
@@ -139,6 +140,19 @@ fn save_settings(settings: Settings, state: State<'_, AppState>) -> Result<Setti
     settings.save()?;
     *state.settings.lock().unwrap() = settings.clone();
     Ok(settings)
+}
+
+#[tauri::command]
+async fn doctor_assess() -> Result<doctor::DoctorReport, String> {
+    tauri::async_runtime::spawn_blocking(|| {
+        let health = sysinfo::health();
+        let battery = battery::status();
+        let restores = restore::list().len();
+        let sensors = hwmon::read().sensors.iter().filter(|s| s.available).count();
+        doctor::assess(&health, &battery, restores, sensors)
+    })
+    .await
+    .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -1735,6 +1749,7 @@ pub fn run() {
             save_settings,
             get_health,
             system_specs,
+            doctor_assess,
             scan_cleaners,
             clean_cleaners,
             cancel_work,

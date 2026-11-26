@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.7.0
+- Hardware Center: sensors, battery and disk data in one tool view.
+- Startup Analyzer: review startup items with existing safe-to-disable metadata.
+- Privacy Center: selective browser data cleanup reusing existing catalog.
+- System Doctor: explainable score — every point maps to a real check with a reason.
+- 56 unit tests + UI smoke test.
+
 ## 1.6.0
 - Rescue Center: restore points, quarantine batches and registry backup list
   in one place, with explicit restore / empty actions.

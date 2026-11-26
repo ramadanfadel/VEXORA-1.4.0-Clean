@@ -245,6 +245,17 @@ const DICT = {
     typedConfirmHint: "اكتب {word} للتأكيد",
     typedConfirmMismatch: "الكتابة غير مطابقة — لم يتم تنفيذ أي شيء",
     ctxAdminDenied: "فشل التغيير — يتطلب صلاحيات Administrator. شغّل VEXORA كمسؤول.",
+    hwcenter: "مركز العتاد",
+    toolHwcenterDesc: "حرارة المعالج والكرت والبطارية وصحة القرص في مكان واحد.",
+    startanalyzer: "تحليل بدء التشغيل",
+    toolStartAnalyzerDesc: "مراجعة عناصر البدء والخدمات مع تصنيف قابل للتفسير.",
+    privacy: "مركز الخصوصية",
+    toolPrivacyDesc: "مراجعة بيانات المتصفحات وتنظيفها بصورة انتقائية.",
+    doctor: "فحص النظام",
+    toolDoctorDesc: "نتيجة قابلة للتفسير: كل درجة مرتبطة بفحص حقيقي.",
+    doctorScore: "نتيجة قابلة للتفسير",
+    doctorReason: "السبب",
+    doctorAction: "الإجراء",
     rescue: "مركز الإنقاذ",
     toolRescueDesc: "نقاط الاستعادة، الحجر الصحي، ونسخ الريجستري القابلة للاستعادة.",
     regdiff: "عارض نسخ الريجستري",
@@ -799,7 +810,18 @@ const DICT = {
     typedConfirmHint: "Type {word} to confirm",
     typedConfirmMismatch: "Text did not match — nothing was changed",
     ctxAdminDenied: "Change failed — Administrator rights are required. Run VEXORA as administrator.",
-    rescue: "Rescue Center",
+    hwcenter: "Hardware Center",
+  toolHwcenterDesc: "CPU/GPU temperatures, battery and disk health in one place.",
+  startanalyzer: "Startup Analyzer",
+  toolStartAnalyzerDesc: "Review startup items and services with explainable classification.",
+  privacy: "Privacy Center",
+  toolPrivacyDesc: "Selective browser data review and cleanup.",
+  doctor: "System Doctor",
+  toolDoctorDesc: "Explainable score: every point maps to a real check.",
+  doctorScore: "Explainable score",
+  doctorReason: "Reason",
+  doctorAction: "Action",
+  rescue: "Rescue Center",
   toolRescueDesc: "Restore points, quarantine and restorable registry backups.",
   regdiff: "Registry backup viewer",
   toolRegDiffDesc: "Inspect .reg backups before restoring — read only.",
@@ -3104,6 +3126,10 @@ async function renderTools() {
     ["junk", t("junkFiles"), "tools"],
     ["services", t("services"), "settings"],
     ["monitor", t("monitor"), "search"],
+    ["hwcenter", t("hwcenter"), "shield"],
+    ["startanalyzer", t("startanalyzer"), "rocket"],
+    ["privacy", t("privacy"), "browser"],
+    ["doctor", t("doctor"), "shield"],
     ["rescue", t("rescue"), "shield"],
     ["regdiff", t("regdiff"), "file"],
     ["tracker", t("tracker"), "clock"],
@@ -3471,6 +3497,82 @@ async function renderTools() {
            <button class="btn danger" id="adobeClean" style="margin-top:10px">${esc(t("adobeClean"))}</button>`
         : items ? `<div class="tiny muted">${esc(t("nothingFound"))}</div>` : `<div class="tiny muted">${esc(t("scanning"))}</div>`}
     </div>`;
+  } else if (tab === "hwcenter") {
+    if (state.tools.hwmon === undefined) {
+      state.tools.hwmon = null;
+      call("hwmon_status", {}).then((h) => { state.tools.hwmon = h; if (state.page === "tools" && state.tools.tab === "hwcenter") go("tools"); }).catch(() => {});
+    }
+    if (state.tools.hwBattery === undefined) {
+      state.tools.hwBattery = null;
+      call("battery_status", {}).then((b) => { state.tools.hwBattery = b; if (state.page === "tools" && state.tools.tab === "hwcenter") go("tools"); }).catch(() => {});
+    }
+    const h = state.tools.hwmon;
+    const b = state.tools.hwBattery;
+    body = `<div class="card flat">
+      <div class="field-row" style="margin-bottom:10px">
+        <button class="btn small primary" id="hwcRefresh">${svg("refresh", 14)}${esc(t("hwmonRefresh"))}</button>
+      </div>
+      ${h && h.sensors && h.sensors.length
+        ? `<table class="table"><thead><tr><th>${esc(t("name"))}</th><th>${esc(t("hwmonMetric"))}</th><th>${esc(t("hwmonValue"))}</th></tr></thead><tbody>
+            ${h.sensors.map((s) => `<tr><td>${esc(s.label)}</td><td>${esc(s.metric)}</td><td class="num">${esc(s.value)}</td></tr>`).join("")}
+          </tbody></table>`
+        : `<div class="tiny muted">${esc(t("hwmonNoSensors"))}</div>`}
+      <div class="vex-sec-label">${esc(t("battery"))}</div>
+      <div class="tiny muted">${b && b.present
+        ? `${b.chargePct}% · ${esc(t("batteryStatus" + (b.charging ? "Charging" : b.discharging ? "Discharging" : "AC")))} · ${esc(t("batteryHealth"))} ${b.healthPct}%`
+        : esc(t("batteryNoBattery"))}</div>
+    </div>`;
+  } else if (tab === "startanalyzer") {
+    if (state.tools.startItems === undefined) {
+      state.tools.startItems = null;
+      call("startup_list", {}).then((v) => { state.tools.startItems = v; if (state.page === "tools" && state.tools.tab === "startanalyzer") go("tools"); }).catch(() => {});
+    }
+    const items = state.tools.startItems || [];
+    body = `<div class="card flat">
+      <div class="field-row" style="margin-bottom:8px">
+        <button class="btn small ghost" id="startRefresh">${svg("refresh", 14)}${esc(t("refresh"))}</button>
+        <span class="tiny muted">${items.length} ${esc(t("startup"))}</span>
+      </div>
+      ${items.length
+        ? items.map((it, i) => `<div class="row" style="padding:8px 0;border-bottom:1px solid var(--line)">
+            <div class="grow min0"><div style="font-weight:600">${esc(it.name)}</div>
+              <div class="tiny muted">${esc(it.safeToDisable ? (it.suggestion || t("safe")) : t("sensitive"))} · ${esc(it.source)}</div></div>
+            <button class="btn small ghost" data-starttoggle="${i}">${it.enabled ? esc(t("disable")) : esc(t("enable"))}</button></div>`).join("")
+        : `<div class="tiny muted">—</div>`}
+      <div class="tiny muted" style="margin-top:10px">${esc(t("bgProgramsHint"))}</div>
+    </div>`;
+  } else if (tab === "privacy") {
+    if (state.tools.privacyBrowsers === undefined) {
+      state.tools.privacyBrowsers = null;
+      call("browsers_list", {}).then((v) => { state.tools.privacyBrowsers = v; if (state.page === "tools" && state.tools.tab === "privacy") go("tools"); }).catch(() => {});
+    }
+    const bs = (state.tools.privacyBrowsers || []).filter((b) => b.installed);
+    const cats = state.tools.browserCats || ["cache", "cookies", "history", "sessions"];
+    body = `<div class="card flat">
+      ${bs.length
+        ? bs.map((b) => `<div style="padding:8px 0;border-bottom:1px solid var(--line)">
+            <div style="font-weight:600">${esc(b.name)}</div>
+            <div class="tiny muted">${cats.map((c) => `<label style="margin-inline-end:10px"><input type="checkbox" data-priv="${esc(b.id)}:${esc(c)}" checked /> ${esc(c)}</label>`).join("")}</div>
+            <button class="btn small danger" data-privclean="${esc(b.id)}" style="margin-top:6px">${esc(t("clean"))}</button></div>`).join("")
+        : `<div class="tiny muted">—</div>`}
+    </div>`;
+  } else if (tab === "doctor") {
+    if (state.tools.doctor === undefined) {
+      state.tools.doctor = null;
+      call("doctor_assess", {}).then((v) => { state.tools.doctor = v; if (state.page === "tools" && state.tools.tab === "doctor") go("tools"); }).catch(() => {});
+    }
+    const d = state.tools.doctor;
+    body = `<div class="card flat">
+      <div class="field-row" style="margin-bottom:10px">
+        <button class="btn small primary" id="doctorRefresh">${svg("refresh", 14)}${esc(t("refresh"))}</button>
+        <span class="tiny muted">${esc(t("doctorScore"))}: ${d ? d.score : "—"}</span>
+      </div>
+      ${d && d.checks && d.checks.length
+        ? `<table class="table"><thead><tr><th>${esc(t("name"))}</th><th>${esc(t("doctorReason"))}</th><th>${esc(t("doctorAction"))}</th></tr></thead><tbody>
+            ${d.checks.map((c) => `<tr><td>${c.ok ? "✓" : "!"} ${esc(c.label)}</td><td class="tiny">${esc(c.detail)}</td><td class="tiny">${esc(c.action)}</td></tr>`).join("")}
+          </tbody></table>`
+        : `<div class="tiny muted">—</div>`}
+    </div>`;
   } else if (tab === "rescue") {
     const pts = state.tools.rescuePoints;
     const q = state.tools.quarantine;
@@ -3767,6 +3869,10 @@ async function renderTools() {
     ["junk", "tools", t("junkFiles"), t("toolJunkDesc")],
     ["services", "settings", t("services"), t("toolServicesDesc")],
     ["monitor", "search", t("monitor"), t("toolMonitorDesc")],
+    ["hwcenter", "shield", t("hwcenter"), t("toolHwcenterDesc")],
+    ["startanalyzer", "rocket", t("startanalyzer"), t("toolStartAnalyzerDesc")],
+    ["privacy", "browser", t("privacy"), t("toolPrivacyDesc")],
+    ["doctor", "shield", t("doctor"), t("toolDoctorDesc")],
     ["rescue", "shield", t("rescue"), t("toolRescueDesc")],
     ["regdiff", "file", t("regdiff"), t("toolRegDiffDesc")],
     ["tracker", "clock", t("tracker"), t("toolTrackerDesc")],
@@ -3986,6 +4092,46 @@ async function renderTools() {
         state.tools.adobeItems = undefined;
         go("tools");
       };
+  }
+  if (tab === "hwcenter") {
+    if ($("#hwcRefresh")) $("#hwcRefresh").onclick = async () => {
+      try {
+        state.tools.hwmon = await call("hwmon_status", {});
+        state.tools.hwBattery = await call("battery_status", {});
+        go("tools");
+      } catch (e) { toast(String(e), "error"); }
+    };
+  }
+  if (tab === "startanalyzer") {
+    if ($("#startRefresh")) $("#startRefresh").onclick = async () => {
+      state.tools.startItems = undefined; go("tools");
+    };
+    $$("[data-starttoggle]").forEach((b) => (b.onclick = async () => {
+      const it = (state.tools.startItems || [])[Number(b.dataset.starttoggle)];
+      if (!it) return;
+      try {
+        await call("startup_set", { source: it.source, name: it.name, enabled: !it.enabled });
+        state.tools.startItems = undefined;
+        go("tools");
+      } catch (e) { toast(String(e), "error"); }
+    }));
+  }
+  if (tab === "privacy") {
+    $$("[data-privclean]").forEach((b) => (b.onclick = async () => {
+      const id = b.dataset.privclean;
+      const cats = $$(`[data-priv^="${id}:"]`).filter((x) => x.checked).map((x) => x.dataset.priv.split(":")[1]);
+      if (!cats.length) return toast(t("nothingSelected"), "warn");
+      try {
+        const out = await call("browser_clean", { id, categories: cats }, t("cleaning"));
+        deleteResultToast(out);
+      } catch (e) { toast(String(e), "error"); }
+    }));
+  }
+  if (tab === "doctor") {
+    if ($("#doctorRefresh")) $("#doctorRefresh").onclick = async () => {
+      try { state.tools.doctor = await call("doctor_assess", {}); go("tools"); }
+      catch (e) { toast(String(e), "error"); }
+    };
   }
   if (tab === "rescue") {
     const act = (id, cmd) => {
