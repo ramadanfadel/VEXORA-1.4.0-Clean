@@ -39,7 +39,7 @@ windows-sys = { version = "0.59", features = [
     "Win32_NetworkManagement_Ndis",
 ] }
 num_cpus = "1"
-sha2 = "0.10"
+sha2 = "0.11"
 image = "0.25"
 image_hasher = "3"
 rayon = "1"
