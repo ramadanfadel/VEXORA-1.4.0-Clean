@@ -24,6 +24,7 @@ pub mod safety;
 pub mod scan;
 pub mod schedule;
 pub mod services;
+pub mod software_updater;
 pub mod settings;
 pub mod shredder;
 pub mod startup;
@@ -153,6 +154,26 @@ async fn doctor_assess() -> Result<doctor::DoctorReport, String> {
     })
     .await
     .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn software_updates_scan() -> Result<Vec<software_updater::AppUpdate>, String> {
+    tauri::async_runtime::spawn_blocking(software_updater::scan)
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+async fn software_upgrade(id: String) -> Result<(bool, String), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let _lock = match util::try_op_lock() {
+            Some(g) => g,
+            None => return Ok((false, "another operation is running".into())),
+        };
+        software_updater::upgrade(&id)
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
@@ -1750,6 +1771,8 @@ pub fn run() {
             get_health,
             system_specs,
             doctor_assess,
+            software_updates_scan,
+            software_upgrade,
             scan_cleaners,
             clean_cleaners,
             cancel_work,

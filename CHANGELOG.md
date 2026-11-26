@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.8.0
+- Software Updater: read-only winget upgrade scan and explicit single-app upgrade.
+- Designer Care: Adobe cache / similar-image summary linking to existing tools.
+- Advanced Font Manager: duplicate detection, backup and user-font deletion with typed confirmation.
+- 59 unit tests + UI smoke test.
+
 ## 1.7.0
 - Hardware Center: sensors, battery and disk data in one tool view.
 - Startup Analyzer: review startup items with existing safe-to-disable metadata.

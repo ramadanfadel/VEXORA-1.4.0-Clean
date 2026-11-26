@@ -245,6 +245,24 @@ const DICT = {
     typedConfirmHint: "اكتب {word} للتأكيد",
     typedConfirmMismatch: "الكتابة غير مطابقة — لم يتم تنفيذ أي شيء",
     ctxAdminDenied: "فشل التغيير — يتطلب صلاحيات Administrator. شغّل VEXORA كمسؤول.",
+    softupdater: "تحديث البرامج",
+    toolSoftUpdaterDesc: "فحص تحديثات البرامج المثبتة عبر winget — التحديث بضغطة صريحة.",
+    designercare: "العناية بالتصميم",
+    toolDesignerCareDesc: "ملخص كاش Adobe والصور المتشابهة مع اختصارات للأدوات الموجودة.",
+    fontmanager: "إدارة الخطوط المتقدمة",
+    toolFontManagerDesc: "كشف مكررات الخطوط مع نسخ احتياطي وحذف خطوط المستخدم فقط.",
+    softScan: "فحص التحديثات",
+    softUpgrade: "تحديث",
+    softNoUpdates: "لا توجد تحديثات متاحة أو أن winget غير متاح.",
+    softAvailable: "متاح",
+    designerAdobeOpen: "برنامج Adobe مفتوح — أغلقه قبل التنظيف",
+    designerCache: "عناصر كاش",
+    designerSimilar: "مجموعات صور متشابهة",
+    designerOpenTool: "فتح الأداة",
+    fontDuplicates: "خطوط مكررة",
+    fontOnlyUser: "خطوط المستخدم فقط قابلة للحذف",
+    fontBackup: "نسخ احتياطي",
+    fontDelete: "حذف",
     hwcenter: "مركز العتاد",
     toolHwcenterDesc: "حرارة المعالج والكرت والبطارية وصحة القرص في مكان واحد.",
     startanalyzer: "تحليل بدء التشغيل",
@@ -810,7 +828,25 @@ const DICT = {
     typedConfirmHint: "Type {word} to confirm",
     typedConfirmMismatch: "Text did not match — nothing was changed",
     ctxAdminDenied: "Change failed — Administrator rights are required. Run VEXORA as administrator.",
-    hwcenter: "Hardware Center",
+    softupdater: "Software Updater",
+  toolSoftUpdaterDesc: "Check installed app updates with winget — upgrades are explicit.",
+  designercare: "Designer Care",
+  toolDesignerCareDesc: "Adobe cache and similar-image summary with shortcuts to existing tools.",
+  fontmanager: "Advanced Font Manager",
+  toolFontManagerDesc: "Detect duplicate fonts, back up, and delete user fonts only.",
+  softScan: "Scan updates",
+  softUpgrade: "Upgrade",
+  softNoUpdates: "No updates available or winget is unavailable.",
+  softAvailable: "Available",
+  designerAdobeOpen: "Adobe is running — close it before cleaning",
+  designerCache: "cache items",
+  designerSimilar: "similar image groups",
+  designerOpenTool: "Open tool",
+  fontDuplicates: "Duplicate fonts",
+  fontOnlyUser: "Only user fonts can be deleted",
+  fontBackup: "Backup",
+  fontDelete: "Delete",
+  hwcenter: "Hardware Center",
   toolHwcenterDesc: "CPU/GPU temperatures, battery and disk health in one place.",
   startanalyzer: "Startup Analyzer",
   toolStartAnalyzerDesc: "Review startup items and services with explainable classification.",
@@ -3126,6 +3162,9 @@ async function renderTools() {
     ["junk", t("junkFiles"), "tools"],
     ["services", t("services"), "settings"],
     ["monitor", t("monitor"), "search"],
+    ["softupdater", t("softupdater"), "refresh"],
+    ["designercare", t("designercare"), "apps"],
+    ["fontmanager", t("fontmanager"), "file"],
     ["hwcenter", t("hwcenter"), "shield"],
     ["startanalyzer", t("startanalyzer"), "rocket"],
     ["privacy", t("privacy"), "browser"],
@@ -3496,6 +3535,56 @@ async function renderTools() {
         ? `<div class="filelist" style="max-height:360px;overflow:auto">${items.map((it, i) => `<label class="f" style="gap:8px;cursor:pointer"><input type="checkbox" data-adobe="${i}" checked style="accent-color:var(--accent)" /><span class="grow ellipsis tiny" style="direction:ltr;text-align:start">${esc(it.path)}</span><span class="tiny muted">${esc(it.kind)}</span><span>${fmtBytes(it.size)}</span></label>`).join("")}</div>
            <button class="btn danger" id="adobeClean" style="margin-top:10px">${esc(t("adobeClean"))}</button>`
         : items ? `<div class="tiny muted">${esc(t("nothingFound"))}</div>` : `<div class="tiny muted">${esc(t("scanning"))}</div>`}
+    </div>`;
+  } else if (tab === "softupdater") {
+    const ups = state.tools.softUpdates;
+    body = `<div class="card flat">
+      <div class="field-row" style="margin-bottom:10px">
+        <button class="btn small primary" id="softScan">${svg("refresh", 14)}${esc(t("softScan"))}</button>
+        <span class="tiny muted">${ups && ups.length ? ups.length : "—"}</span>
+      </div>
+      ${ups && ups.length
+        ? ups.map((u, i) => `<div class="row" style="padding:8px 0;border-bottom:1px solid var(--line)">
+            <div class="grow min0"><div style="font-weight:600">${esc(u.name)}</div>
+              <div class="tiny muted">${esc(u.installed)} → ${esc(u.available)} · ${esc(u.id)}</div></div>
+            <button class="btn small ghost" data-softup="${i}">${esc(t("softUpgrade"))}</button></div>`).join("")
+        : `<div class="tiny muted">${esc(t("softNoUpdates"))}</div>`}
+    </div>`;
+  } else if (tab === "designercare") {
+    if (state.tools.designSummary === undefined) {
+      state.tools.designSummary = null;
+      Promise.all([call("adobe_running", {}), call("adobe_cache_items", {}), call("similar_images_scan", { root: "C:\\", maxDiff: 4 }).catch(() => [])])
+        .then(([running, cache, similar]) => {
+          state.tools.designSummary = { running, cacheCount: (cache || []).length, similarCount: (similar || []).length };
+          if (state.page === "tools" && state.tools.tab === "designercare") go("tools");
+        }).catch(() => {});
+    }
+    const s = state.tools.designSummary;
+    body = `<div class="card flat">
+      ${s && s.running ? `<div class="tiny" style="color:var(--warn)">${esc(t("designerAdobeOpen"))}</div>` : ""}
+      <div class="kv"><span>${esc(t("designerCache"))}</span><span>${s ? s.cacheCount : "—"}</span></div>
+      <div class="kv"><span>${esc(t("designerSimilar"))}</span><span>${s ? s.similarCount : "—"}</span></div>
+      <div class="field-row" style="flex-wrap:wrap;margin-top:12px;gap:8px">
+        <button class="btn small ghost" data-gotool="adobecache">${esc(t("designerOpenTool"))}: ${esc(t("adobeCache"))}</button>
+        <button class="btn small ghost" data-gotool="similar">${esc(t("designerOpenTool"))}: ${esc(t("similarImages"))}</button>
+      </div>
+    </div>`;
+  } else if (tab === "fontmanager") {
+    if (state.tools.allFonts === undefined) {
+      state.tools.allFonts = null;
+      call("fonts_list", {}).then((v) => { state.tools.allFonts = v; if (state.page === "tools" && state.tools.tab === "fontmanager") go("tools"); }).catch(() => {});
+    }
+    const fonts = state.tools.allFonts || [];
+    const dups = fonts.filter((f) => f.duplicate);
+    body = `<div class="card flat">
+      <div class="tiny muted" style="margin-bottom:8px">${esc(t("fontDuplicates"))}: ${dups.length} · ${esc(t("fontOnlyUser"))}</div>
+      ${fonts.length
+        ? fonts.slice(0, 200).map((f, i) => `<div class="row" style="padding:6px 0;border-bottom:1px solid var(--line)">
+            <div class="grow min0"><div style="font-weight:600">${esc(f.name)}</div><div class="tiny muted">${esc(f.source)} ${f.duplicate ? "· duplicate" : ""}</div></div>
+            <button class="btn small ghost" data-fontbackupadv="${i}">${esc(t("fontBackup"))}</button>
+            ${f.source === "user" ? `<button class="btn small danger" data-fontdeladv="${i}">${esc(t("fontDelete"))}</button>` : ""}
+          </div>`).join("")
+        : `<div class="tiny muted">—</div>`}
     </div>`;
   } else if (tab === "hwcenter") {
     if (state.tools.hwmon === undefined) {
@@ -3869,6 +3958,9 @@ async function renderTools() {
     ["junk", "tools", t("junkFiles"), t("toolJunkDesc")],
     ["services", "settings", t("services"), t("toolServicesDesc")],
     ["monitor", "search", t("monitor"), t("toolMonitorDesc")],
+    ["softupdater", "refresh", t("softupdater"), t("toolSoftUpdaterDesc")],
+    ["designercare", "apps", t("designercare"), t("toolDesignerCareDesc")],
+    ["fontmanager", "file", t("fontmanager"), t("toolFontManagerDesc")],
     ["hwcenter", "shield", t("hwcenter"), t("toolHwcenterDesc")],
     ["startanalyzer", "rocket", t("startanalyzer"), t("toolStartAnalyzerDesc")],
     ["privacy", "browser", t("privacy"), t("toolPrivacyDesc")],
@@ -4092,6 +4184,49 @@ async function renderTools() {
         state.tools.adobeItems = undefined;
         go("tools");
       };
+  }
+  if (tab === "softupdater") {
+    if ($("#softScan")) $("#softScan").onclick = async () => {
+      try {
+        state.tools.softUpdates = await call("software_updates_scan", {}, t("softScan"));
+        go("tools");
+      } catch (e) { toast(String(e), "error"); }
+    };
+    $$("[data-softup]").forEach((b) => (b.onclick = async () => {
+      const u = (state.tools.softUpdates || [])[Number(b.dataset.softup)];
+      if (!u) return;
+      try {
+        const [ok, msg] = await call("software_upgrade", { id: u.id }, t("softUpgrade"));
+        toast(ok ? t("done") : String(msg), ok ? "ok" : "warn");
+        if (ok) { state.tools.softUpdates = undefined; go("tools"); }
+      } catch (e) { toast(String(e), "error"); }
+    }));
+  }
+  if (tab === "designercare") {
+    $$("[data-gotool]").forEach((b) => (b.onclick = () => { state.tools.tab = b.dataset.gotool; go("tools"); }));
+  }
+  if (tab === "fontmanager") {
+    $$("[data-fontbackupadv]").forEach((b) => (b.onclick = async () => {
+      const f = (state.tools.allFonts || [])[Number(b.dataset.fontbackupadv)];
+      if (!f) return;
+      try {
+        const dest = await call("pick_folder");
+        if (!dest) return;
+        const ok = await call("font_backup", { name: f.name, path: f.path, source: f.source, dest });
+        toast(ok ? t("done") : t("failed"), ok ? "ok" : "warn");
+      } catch (e) { toast(String(e), "error"); }
+    }));
+    $$("[data-fontdeladv]").forEach((b) => (b.onclick = async () => {
+      const f = (state.tools.allFonts || [])[Number(b.dataset.fontdeladv)];
+      if (!f || f.source !== "user") return;
+      if (!(await typedConfirmBox(t("shredderWarn"), t("fontDelete"), "DELETE"))) return;
+      try {
+        const ok = await call("font_delete", { name: f.name, path: f.path, source: f.source });
+        toast(ok ? t("done") : t("failed"), ok ? "ok" : "warn");
+        state.tools.allFonts = undefined;
+        go("tools");
+      } catch (e) { toast(String(e), "error"); }
+    }));
   }
   if (tab === "hwcenter") {
     if ($("#hwcRefresh")) $("#hwcRefresh").onclick = async () => {
